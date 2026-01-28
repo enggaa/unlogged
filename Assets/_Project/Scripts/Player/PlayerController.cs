@@ -11,6 +11,7 @@ namespace GameCore.Player
         [SerializeField] private float sprintSpeed = 6f;
         [SerializeField] private float rotationSpeed = 10f;
         [SerializeField] private float acceleration = 10f;
+        [SerializeField] private float lockOnRotationSpeed = 8f; // 락온 시 회전 속도
 
         [Header("Jump")]
         [SerializeField] private float jumpHeight = 2f;
@@ -22,7 +23,7 @@ namespace GameCore.Player
         [SerializeField] private LayerMask groundMask;
 
         [Header("Camera Reference")]
-        [SerializeField] private Transform cameraRig; // CameraRig 참조! (Camera.main 대신)
+        [SerializeField] private Transform cameraRig;
 
         [Header("Animation")]
         [SerializeField] private Animator animator;
@@ -35,6 +36,7 @@ namespace GameCore.Player
         private InputManager _input;
         private CharacterStats _stats;
         private DamageableEntity _damageableEntity;
+        private LockOnSystem _lockOnSystem; // 락온 시스템 참조 추가
         
         private Vector3 _velocity;
         private Vector3 _moveDirection;
@@ -52,6 +54,7 @@ namespace GameCore.Player
             _controller = GetComponent<CharacterController>();
             _stats = GetComponent<CharacterStats>();
             _damageableEntity = GetComponent<DamageableEntity>();
+            _lockOnSystem = GetComponent<LockOnSystem>(); // 락온 시스템 가져오기
             
             if (animator == null)
             {
@@ -63,18 +66,17 @@ namespace GameCore.Player
         {
             _input = GameManager.Instance.InputManager;
             
-            // CameraRig 자동 찾기 (할당되지 않았을 경우)
+            // CameraRig 자동 찾기
             if (cameraRig == null)
             {
                 GameObject cameraRigObj = GameObject.Find("CameraRig");
                 if (cameraRigObj != null)
                 {
                     cameraRig = cameraRigObj.transform;
-                    Debug.Log("CameraRig found automatically!");
                 }
                 else
                 {
-                    Debug.LogWarning("CameraRig not found! Please assign it or create a GameObject named 'CameraRig'");
+                    Debug.LogWarning("CameraRig not found!");
                 }
             }
 
@@ -113,7 +115,6 @@ namespace GameCore.Player
             
             if (input.magnitude > 0.1f)
             {
-                // ✅ CameraRig 기준으로 방향 계산!
                 if (cameraRig == null)
                 {
                     Debug.LogWarning("CameraRig is not assigned!");
@@ -121,16 +122,30 @@ namespace GameCore.Player
                 }
 
                 float targetAngle = Mathf.Atan2(input.x, input.y) * Mathf.Rad2Deg 
-                                  + cameraRig.eulerAngles.y; // ← CameraRig 사용!
+                                  + cameraRig.eulerAngles.y;
                 
-                // 부드러운 회전
-                float rotation = Mathf.SmoothDampAngle(
-                    transform.eulerAngles.y, 
-                    targetAngle, 
-                    ref _rotationVelocity, 
-                    0.12f
-                );
-                transform.rotation = Quaternion.Euler(0f, rotation, 0f);
+                // 락온 중이 아닐 때만 플레이어 회전
+                if (_lockOnSystem == null || !_lockOnSystem.IsLockedOn)
+                {
+                    // 일반 모드: 부드러운 회전
+                    float rotation = Mathf.SmoothDampAngle(
+                        transform.eulerAngles.y, 
+                        targetAngle, 
+                        ref _rotationVelocity, 
+                        0.12f
+                    );
+                    transform.rotation = Quaternion.Euler(0f, rotation, 0f);
+                }
+                else
+                {
+                    // 락온 모드: 타겟 방향으로 회전하면서 이동
+                    Quaternion targetRotation = _lockOnSystem.GetRotationToTarget();
+                    transform.rotation = Quaternion.Slerp(
+                        transform.rotation,
+                        targetRotation,
+                        lockOnRotationSpeed * Time.deltaTime
+                    );
+                }
 
                 // 이동 방향
                 _moveDirection = Quaternion.Euler(0f, targetAngle, 0f) * Vector3.forward;
@@ -151,6 +166,17 @@ namespace GameCore.Player
             }
             else
             {
+                // 정지 중일 때도 락온 중이면 타겟 바라보기
+                if (_lockOnSystem != null && _lockOnSystem.IsLockedOn)
+                {
+                    Quaternion targetRotation = _lockOnSystem.GetRotationToTarget();
+                    transform.rotation = Quaternion.Slerp(
+                        transform.rotation,
+                        targetRotation,
+                        lockOnRotationSpeed * Time.deltaTime
+                    );
+                }
+                
                 _currentSpeed = Mathf.Lerp(_currentSpeed, 0f, acceleration * Time.deltaTime);
             }
         }
@@ -183,13 +209,12 @@ namespace GameCore.Player
             }
         }
 
-        // 카메라 방향 벡터 가져오기 (다른 스크립트에서 사용 가능)
         public Vector3 GetCameraForward()
         {
             if (cameraRig == null) return transform.forward;
             
             Vector3 forward = cameraRig.forward;
-            forward.y = 0; // Y축 무시 (수평면만)
+            forward.y = 0;
             return forward.normalized;
         }
 
@@ -198,7 +223,7 @@ namespace GameCore.Player
             if (cameraRig == null) return transform.right;
             
             Vector3 right = cameraRig.right;
-            right.y = 0; // Y축 무시
+            right.y = 0;
             return right.normalized;
         }
 
@@ -210,11 +235,18 @@ namespace GameCore.Player
                 Gizmos.DrawWireSphere(groundCheck.position, groundDistance);
             }
 
-            // 이동 방향 표시
             if (Application.isPlaying && _moveDirection != Vector3.zero)
             {
                 Gizmos.color = Color.blue;
                 Gizmos.DrawRay(transform.position, _moveDirection * 2f);
+            }
+            
+            // 락온 중일 때 타겟 방향 표시
+            if (_lockOnSystem != null && _lockOnSystem.IsLockedOn)
+            {
+                Gizmos.color = Color.red;
+                Vector3 targetDir = _lockOnSystem.GetDirectionToTarget();
+                Gizmos.DrawRay(transform.position + Vector3.up, targetDir * 2f);
             }
         }
     }

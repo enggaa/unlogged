@@ -5,16 +5,14 @@ using GameCore.Managers;
 namespace GameCore.Camera
 {
     /// <summary>
-    /// TPS 카메라 컨트롤러
-    /// 이 스크립트는 CameraRig (빈 GameObject)에 부착해야 합니다.
-    /// 실제 카메라는 이 GameObject의 자식으로 배치합니다.
+    /// TPS 카메라 컨트롤러 + 락온 기능
     /// </summary>
     public class TPSCameraController : MonoBehaviour
     {
         [Header("Target Settings")]
-        [SerializeField] private Transform target; // 플레이어 Transform
-        [SerializeField] private float followSpeed = 10f; // 부드러운 추적 속도
-        [SerializeField] private Vector3 targetOffset = new Vector3(0, 1.5f, 0); // 플레이어 중심점 오프셋 (머리 높이)
+        [SerializeField] private Transform target;
+        [SerializeField] private float followSpeed = 10f;
+        [SerializeField] private Vector3 targetOffset = new Vector3(0, 1.5f, 0);
 
         [Header("Camera Rotation Settings")]
         [SerializeField] private float mouseSensitivity = 2f;
@@ -22,8 +20,8 @@ namespace GameCore.Camera
         [SerializeField] private bool invertY = false;
 
         [Header("Camera Limits")]
-        [SerializeField] private float minXRotation = -50f; // 위쪽 제한
-        [SerializeField] private float maxXRotation = 50f;  // 아래쪽 제한
+        [SerializeField] private float minXRotation = -50f;
+        [SerializeField] private float maxXRotation = 50f;
 
         [Header("Camera Distance")]
         [SerializeField] private float minDistance = 1f;
@@ -34,6 +32,10 @@ namespace GameCore.Camera
         [Header("Collision")]
         [SerializeField] private LayerMask collisionLayers;
         [SerializeField] private float collisionOffset = 0.2f;
+        
+        [Header("Lock-On")]
+        [SerializeField] private float lockOnSmoothness = 5f; // 락온 시 부드러운 전환
+        [SerializeField] private Vector3 lockOnTargetOffset = new Vector3(0, 1f, 0); // 락온 타겟 오프셋
 
         private InputManager _input;
         private Transform _cameraTransform;
@@ -48,29 +50,29 @@ namespace GameCore.Camera
         // 캐싱
         private Vector3 _desiredPosition;
         private Vector3 _cameraDirection;
+        
+        // 락온 시스템
+        private Transform _lockOnTarget;
+        private bool _isLockOnMode = false;
 
         private void Start()
         {
             _input = GameManager.Instance.InputManager;
             
-            // 자식 카메라 찾기
             _cameraTransform = GetComponentInChildren<UnityEngine.Camera>().transform;
             
             if (_cameraTransform == null)
             {
-                Debug.LogError("Camera not found as child! Please add a Camera as child of this GameObject.");
+                Debug.LogError("Camera not found as child!");
                 return;
             }
 
-            // 초기 거리 설정
             _currentDistance = defaultDistance;
             _targetDistance = defaultDistance;
             
-            // 초기 회전값 설정
             _rotationY = transform.eulerAngles.y;
             _rotationX = transform.eulerAngles.x;
 
-            // 초기 카메라 위치 설정
             _cameraTransform.localPosition = new Vector3(0, 0, -_currentDistance);
 
             LockCursor();
@@ -93,7 +95,6 @@ namespace GameCore.Camera
 
         private void FollowTarget()
         {
-            // 타겟 위치 + 오프셋으로 이동
             _desiredPosition = target.position + targetOffset;
             transform.position = Vector3.Lerp(
                 transform.position, 
@@ -104,6 +105,14 @@ namespace GameCore.Camera
 
         private void RotateCamera()
         {
+            // 락온 모드일 때
+            if (_isLockOnMode && _lockOnTarget != null)
+            {
+                RotateCameraToLockOnTarget();
+                return;
+            }
+            
+            // 일반 모드
             if (!_cursorLocked) return;
 
             Vector2 lookInput = _input.LookInput;
@@ -112,27 +121,52 @@ namespace GameCore.Camera
             {
                 float sensitivity = mouseSensitivity;
 
-                // 게임패드 감지 (값이 작으면 게임패드)
                 if (Mathf.Abs(lookInput.x) < 1f || Mathf.Abs(lookInput.y) < 1f)
                 {
                     sensitivity = gamepadSensitivity * Time.deltaTime;
                 }
 
-                // Y축 회전 (좌우)
                 _rotationY += lookInput.x * sensitivity;
-
-                // X축 회전 (상하)
                 _rotationX += lookInput.y * sensitivity * (invertY ? 1f : -1f);
                 _rotationX = Mathf.Clamp(_rotationX, minXRotation, maxXRotation);
 
-                // Rig 회전 적용
                 transform.rotation = Quaternion.Euler(_rotationX, _rotationY, 0f);
             }
+        }
+        
+        /// <summary>
+        /// 락온 타겟을 바라보도록 카메라 회전
+        /// </summary>
+        private void RotateCameraToLockOnTarget()
+        {
+            if (_lockOnTarget == null)
+            {
+                _isLockOnMode = false;
+                return;
+            }
+            
+            // 타겟 방향 계산 (오프셋 포함)
+            Vector3 targetPosition = _lockOnTarget.position + lockOnTargetOffset;
+            Vector3 directionToTarget = targetPosition - transform.position;
+            
+            // 목표 회전
+            Quaternion targetRotation = Quaternion.LookRotation(directionToTarget);
+            
+            // 부드럽게 회전
+            transform.rotation = Quaternion.Slerp(
+                transform.rotation,
+                targetRotation,
+                Time.deltaTime * lockOnSmoothness
+            );
+            
+            // 현재 회전을 내부 값에 저장 (락온 해제 시 자연스러운 전환)
+            Vector3 currentEuler = transform.rotation.eulerAngles;
+            _rotationX = NormalizeAngle(currentEuler.x);
+            _rotationY = currentEuler.y;
         }
 
         private void HandleZoom()
         {
-            // 마우스 휠 입력 (New Input System에서는 InputManager에 추가 필요)
             var mouse = Mouse.current;
             if (mouse != null)
             {
@@ -144,16 +178,13 @@ namespace GameCore.Camera
                 }
             }
 
-            // 부드러운 줌
             _currentDistance = Mathf.Lerp(_currentDistance, _targetDistance, Time.deltaTime * 10f);
         }
 
         private void HandleCameraCollision()
         {
-            // 카메라 방향 계산
             _cameraDirection = -transform.forward;
             
-            // Raycast로 장애물 감지
             Ray ray = new Ray(transform.position, _cameraDirection);
             RaycastHit hit;
 
@@ -161,7 +192,6 @@ namespace GameCore.Camera
 
             if (Physics.Raycast(ray, out hit, _currentDistance, collisionLayers))
             {
-                // 충돌 지점까지의 거리 계산 (약간의 오프셋 추가)
                 finalDistance = Mathf.Clamp(
                     hit.distance - collisionOffset, 
                     minDistance, 
@@ -169,7 +199,6 @@ namespace GameCore.Camera
                 );
             }
 
-            // 카메라 로컬 포지션 설정
             _cameraTransform.localPosition = new Vector3(0, 0, -finalDistance);
         }
 
@@ -222,18 +251,54 @@ namespace GameCore.Camera
         {
             invertY = invert;
         }
+        
+        /// <summary>
+        /// 락온 타겟 설정
+        /// </summary>
+        public void SetLockOnTarget(Transform lockTarget)
+        {
+            _lockOnTarget = lockTarget;
+            _isLockOnMode = true;
+        }
+        
+        /// <summary>
+        /// 락온 해제
+        /// </summary>
+        public void ReleaseLockOn()
+        {
+            _lockOnTarget = null;
+            _isLockOnMode = false;
+        }
+        
+        /// <summary>
+        /// 각도를 -180~180 범위로 정규화
+        /// </summary>
+        private float NormalizeAngle(float angle)
+        {
+            while (angle > 180f)
+                angle -= 360f;
+            while (angle < -180f)
+                angle += 360f;
+            return angle;
+        }
 
         private void OnDrawGizmos()
         {
             if (target == null) return;
 
-            // 타겟 포지션
             Gizmos.color = Color.green;
             Gizmos.DrawWireSphere(target.position + targetOffset, 0.2f);
 
-            // 카메라 충돌 체크 레이
             Gizmos.color = Color.red;
             Gizmos.DrawLine(transform.position, transform.position - transform.forward * _currentDistance);
+            
+            // 락온 타겟 표시
+            if (_isLockOnMode && _lockOnTarget != null)
+            {
+                Gizmos.color = Color.yellow;
+                Gizmos.DrawWireSphere(_lockOnTarget.position + lockOnTargetOffset, 0.5f);
+                Gizmos.DrawLine(transform.position, _lockOnTarget.position + lockOnTargetOffset);
+            }
         }
     }
 }
