@@ -13,10 +13,13 @@
 // limitations under the License.
 
 fileFormatVersion: 2
-guid: 3f6ccaa08dea35746b492a018df26a78
-folderAsset: yes
-DefaultImporter:
+guid: fbf62bea472a8c8458452a16c4416d79
+MonoImporter:
   externalObjects: {}
+  serializedVersion: 2
+  defaultReferences: []
+  executionOrder: 0
+  icon: {instanceID: 0}
   userData: 
   assetBundleName: 
   assetBundleVariant: 
