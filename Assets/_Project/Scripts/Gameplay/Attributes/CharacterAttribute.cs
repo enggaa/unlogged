@@ -24,7 +24,7 @@ namespace BrightSouls
             get { return value; }
             set
             {
-                onAttributeChanged.Invoke(this.value, value);
+                onAttributeChanged?.Invoke(this.value, value);
                 this.value = value;
             }
         }

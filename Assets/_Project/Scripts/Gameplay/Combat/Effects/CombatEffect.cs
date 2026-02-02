@@ -15,8 +15,8 @@ namespace BrightSouls
 
         public void Apply(ICombatCharacter target)
         {
-            // TODO add a global monobehaviour to take care of routines for Overtime Effects
-            //mono.StartCoroutine(UpdateRoutine());
+            // ActionHelper.mono를 사용하여 코루틴 실행
+            Helpers.Timing.ActionHelper.mono.StartCoroutine(UpdateRoutine(target));
         }
 
         private IEnumerator UpdateRoutine(ICombatCharacter target)

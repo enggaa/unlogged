@@ -1,6 +1,3 @@
-// Unity 6 Compatible - AICharacter.cs
-// Updated: 2026-01-31
-
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
@@ -119,7 +116,10 @@ namespace BrightSouls.AI
 
         public void OnGetHit(Attack attack)
         {
-            if (this.Fsm.IsInState<PlayerStateDead>())
+            // TODO: AI FSM이 구현되면 IsInState<AIStateDead>()로 변경
+            // 현재는 Health가 0 이하인지로 죽음 체크
+            var healthAttr = Attributes.GetAttribute<HealthAttribute>();
+            if (healthAttr != null && healthAttr.Value <= 0f)
             {
                 return;
             }

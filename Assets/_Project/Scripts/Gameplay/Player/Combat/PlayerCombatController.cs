@@ -101,12 +101,16 @@ namespace BrightSouls.Gameplay
             // Behavior 1: blocked attack
             if (playerIsBlocking && hasSuccesfullyBlocked)
             {
-                //player.Stamina.Value -= (float)attack.Data.BlockStaminaDamage;
+                // 블록 시 스태미나 소모 (간단 구현)
+                float blockStaminaCost = 10f; // TODO: AttackData에서 가져오도록 개선
+                player.Attributes.Stamina.Value -= blockStaminaCost;
+                
                 if (player.Attributes.Stamina.Value <= 0f)
                 {
                     events.RaiseOnBlockBrokenEvent();
-                    //player.Health.Value -= damage * data.BlockBreakDamageModifier;
-                    //player.Poise.Value -= player.Poise.maxStaggerHealth;
+                    // 블록 브레이크 시 데미지 일부 받음
+                    float breakDamage = 5f; // TODO: AttackData에서 가져오도록 개선
+                    player.Health.Value -= breakDamage;
                 }
                 else
                 {
@@ -119,8 +123,15 @@ namespace BrightSouls.Gameplay
                 bool playerIsDead = player.State.IsDead;
                 if (!playerIsDead)
                 {
-                    //player.Health.Value -= damage;
-                    //player.Poise.Value -= attack.Data.staggerDamage;
+                    // AttackData의 TargetEffects 적용
+                    if (attack.Data != null && attack.Data.TargetEffects != null)
+                    {
+                        foreach (var effect in attack.Data.TargetEffects)
+                        {
+                            effect?.Apply(player);
+                        }
+                    }
+                    
                     events.RaiseOnTakeDamageEvent();
                 }
             }

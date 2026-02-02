@@ -1,6 +1,3 @@
-// Unity 6 Compatible - LockOnDetector.cs
-// Updated: 2026-01-31
-
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
@@ -40,7 +37,7 @@ namespace BrightSouls.Gameplay
             }
 
             ICombatCharacter character = other.GetComponent<ICombatCharacter>();
-            if (character != null)
+            if (character == null)
             {
                 return;
             }
@@ -58,7 +55,7 @@ namespace BrightSouls.Gameplay
         private void OnTriggerExit(Collider other)
         {
             ICombatCharacter character = other.GetComponent<ICombatCharacter>();
-            if (character != null)
+            if (character == null)
             {
                 return;
             }

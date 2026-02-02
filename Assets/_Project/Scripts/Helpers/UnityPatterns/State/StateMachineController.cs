@@ -51,8 +51,7 @@ namespace UnityPatterns.FiniteStateMachine
         {
             if (newState == null)
             {
-                var stateType = newState.GetType();
-                Debug.LogError($"SetState<{stateType}> failed: State machine {base.name} does not contain state of type {stateType}.");
+                Debug.LogError($"SetState failed: newState is null in state machine \"{base.name}\".");
                 return;
             }
             else

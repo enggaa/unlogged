@@ -45,5 +45,36 @@ namespace Patterns.Observer
                     listeners[msgType].Add(observer);
             }
         }
+
+        public static void Unobserve(this IObserver observer, Message msgType)
+        {
+            if (!MessageSystem.initialized)
+                return;
+
+            if (listeners.ContainsKey(msgType))
+            {
+                if (listeners[msgType].Contains(observer))
+                {
+                    listeners[msgType].Remove(observer);
+                }
+                
+                // 리스트가 비어있으면 딕셔너리에서 제거
+                if (listeners[msgType].Count == 0)
+                {
+                    listeners.Remove(msgType);
+                }
+            }
+        }
+
+        public static void UnobserveAll(this IObserver observer)
+        {
+            if (!MessageSystem.initialized)
+                return;
+
+            foreach (var kvp in listeners)
+            {
+                kvp.Value.Remove(observer);
+            }
+        }
     }
 }
