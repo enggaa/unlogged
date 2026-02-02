@@ -36,7 +36,9 @@ namespace Patterns.ObjectPool
 
         public T Fetch()
         {
-            return pool[(iterator < pool.Length) ? iterator++ : iterator = 0];
+            T item = pool[iterator % pool.Length];
+            iterator = (iterator + 1) % pool.Length;
+            return item;
         }
 
         public T[] FetchAll()

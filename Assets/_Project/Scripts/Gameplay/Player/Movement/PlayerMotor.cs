@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Text;
 using UnityEngine;
 
@@ -87,6 +88,7 @@ namespace BrightSouls.Gameplay
         {
             var move = player.Input.currentActionMap.FindAction("Move");
             move.performed += ctx => Move.Execute(move.ReadValue<Vector2>());
+            move.canceled += ctx => Move.Execute(Vector2.zero);
         }
 
         /* ----------------------------- Public Methods ----------------------------- */
@@ -173,13 +175,14 @@ namespace BrightSouls.Gameplay
             }
             else
             {
-                if (input.x < 0.1f)
+                // 데드존 처리: 절댓값이 0.1 미만이면 0으로
+                if (Mathf.Abs(input.x) < 0.1f)
                 {
-                    input.Set(0f, input.y);
+                    input.x = 0f;
                 }
-                if (input.y < 0.1f)
+                if (Mathf.Abs(input.y) < 0.1f)
                 {
-                    input.Set(input.x, 0f);
+                    input.y = 0f;
                 }
                 return input;
             }

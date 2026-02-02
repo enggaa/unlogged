@@ -57,7 +57,7 @@ namespace BrightSouls.Gameplay
 
             public override void Execute(bool block)
             {
-                //player.Anim.SetBool("block", block);
+                player.Anim.SetBool("block", block);
             }
         }
 

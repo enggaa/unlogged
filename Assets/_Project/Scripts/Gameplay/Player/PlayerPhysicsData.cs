@@ -19,7 +19,7 @@ namespace BrightSouls
 
         public float DeccelerationTime
         {
-            get => DeccelerationTime;
+            get => deccelerationTime;
         }
 
         public float MinimumFallDamageSpeed
