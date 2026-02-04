@@ -61,6 +61,7 @@ namespace BrightSouls.Gameplay
         private void InitializeComponentReferences()
         {
             commands = new PlayerCombatCommands(player);
+            events = new PlayerCombatEvents();
         }
 
         private void InitializeInput()

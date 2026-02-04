@@ -16,27 +16,27 @@ namespace BrightSouls
 
         public void RaiseOnStaggerEvent()
         {
-            onStagger.Invoke();
+            onStagger?.Invoke();
         }
 
         public void RaiseOnTakeDamageEvent()
         {
-            onTakeDamage.Invoke();
+            onTakeDamage?.Invoke();
         }
 
         public void RaiseOnBlockHitEvent()
         {
-            onBlockHit.Invoke();
+            onBlockHit?.Invoke();
         }
 
         public void RaiseOnBlockBrokenEvent()
         {
-            onBlockBroken.Invoke();
+            onBlockBroken?.Invoke();
         }
 
         public void RaiseOnDodgeExecutedEvent(Vector3 dir)
         {
-            onDodge.Invoke(dir);
+            onDodge?.Invoke(dir);
         }
 
         /* -------------------------------------------------------------------------- */

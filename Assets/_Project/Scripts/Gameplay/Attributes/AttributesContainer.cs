@@ -42,7 +42,11 @@ namespace BrightSouls
         }
 
         public void AddAttribute<T>(T value) where T : ICharacterAttribute
-        {
+        {            
+            if (!initialized)
+            {
+                Initialize();
+            }
             attributeMap.Add(typeof(T), value);
         }
     }

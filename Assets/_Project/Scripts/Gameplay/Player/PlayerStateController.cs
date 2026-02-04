@@ -39,7 +39,8 @@ namespace BrightSouls.Gameplay
 
         public StateMachineController Fsm
         {
-            get => null;
+            get => fsm;
         }
+    [SerializeField] private StateMachineController fsm;
     }
 }

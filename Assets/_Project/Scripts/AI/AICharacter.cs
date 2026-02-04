@@ -161,6 +161,12 @@ namespace BrightSouls.AI
         public void Attack(int attackId)
         {
             var weapon = GetComponentInChildren<Weapon>();
+            if (weapon == null)
+            {
+                Debug.LogWarning($"AICharacter \"{name}\" tried to attack without a Weapon component.");
+                return;
+            }
+
             weapon.OnAttack(attackId);
         }
 

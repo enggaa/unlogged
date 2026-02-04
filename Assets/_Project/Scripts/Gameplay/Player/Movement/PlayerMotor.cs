@@ -190,8 +190,9 @@ namespace BrightSouls.Gameplay
 
         public Vector2 GetDirectionInXZPlane()
         {
-            // TODO implement GetDirectionInXZPlane in PlayerMotor
-            return Vector2.zero;
+            var forward = transform.forward;
+            var flattened = new Vector2(forward.x, forward.z);
+            return flattened.sqrMagnitude > 0f ? flattened.normalized : Vector2.zero;
         }
 
         /* -------------------------------------------------------------------------- */
