@@ -131,7 +131,7 @@ namespace UnityPatterns.FiniteStateMachine
             {
                 if (transition.Source == currentState)
                 {
-                    if (transition.Condition.Validate(this))
+                    if (transition.Condition != null && transition.Condition.Validate(this))
                     {
                         IState source = transition.Source;
                         IState target = transition.Target;

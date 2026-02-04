@@ -37,7 +37,10 @@ namespace BrightSouls.Gameplay
             set
             {
                 speed = value;
-                player.Anim.SetFloat("speed_y", speed.y);
+                if (player != null && player.Anim != null)
+                {
+                    player.Anim.SetFloat("speed_y", speed.y);
+                }
             }
         }
 
@@ -67,6 +70,11 @@ namespace BrightSouls.Gameplay
 
         private void Update()
         {
+            if (player == null || charController == null || physicsData == null || worldPhysicsData == null)
+            {
+                return;
+            }
+
             GravityUpdate();
 
             if (player.State.IsDead)
@@ -81,12 +89,36 @@ namespace BrightSouls.Gameplay
 
         private void InitializeCommands()
         {
+            if (player == null)
+            {
+                Debug.LogError("PlayerMotor requires a Player reference.");
+                return;
+            }
+
             Move = new MoveCommand(this.player);
         }
 
         private void InitializeInput()
         {
+            if (player == null || player.Input == null)
+            {
+                Debug.LogError("PlayerMotor requires Player input.");
+                return;
+            }
+
+            if (player.Input.currentActionMap == null)
+            {
+                Debug.LogError("PlayerMotor could not find a current action map.");
+                return;
+            }
+
             var move = player.Input.currentActionMap.FindAction("Move");
+            if (move == null)
+            {
+                Debug.LogError("PlayerMotor could not find Move action.");
+                return;
+            }
+
             move.performed += ctx => Move.Execute(move.ReadValue<Vector2>());
             move.canceled += ctx => Move.Execute(Vector2.zero);
         }
@@ -95,6 +127,11 @@ namespace BrightSouls.Gameplay
 
         public void PerformGroundMovement(Vector2 input)
         {
+            if (player == null || player.Anim == null)
+            {
+                return;
+            }
+
             input = ClampMovementInput(input);
             var moveSpeedMultiplier = GetMovementSpeedMultiplier();
             // Actual transform movement is handled by the animator
@@ -126,9 +163,12 @@ namespace BrightSouls.Gameplay
         {
             var ray = new Ray(transform.position, Vector3.down);
             grounded = Physics.SphereCast(ray, charController.radius + 0.1f, charController.height / 2f + 0.5f, physicsData.GroundDetectionLayers.value);
-            player.Anim.SetBool("grounded", grounded);
-            // Animator also applies gravity, so when not grounded disable animator physics
-            player.Anim.applyRootMotion = grounded;
+            if (player != null && player.Anim != null)
+            {
+                player.Anim.SetBool("grounded", grounded);
+                // Animator also applies gravity, so when not grounded disable animator physics
+                player.Anim.applyRootMotion = grounded;
+            }
         }
 
         private void OnHitGround()

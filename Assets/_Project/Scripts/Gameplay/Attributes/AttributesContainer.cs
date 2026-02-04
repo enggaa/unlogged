@@ -15,9 +15,23 @@ namespace BrightSouls
         private void Initialize()
         {
             attributeMap = new Dictionary<System.Type, ICharacterAttribute>();
-            foreach(var attribute in serializedAttributes)
+            if (serializedAttributes == null)
             {
-                attributeMap.Add(attribute.GetType(), attribute);
+                serializedAttributes = new List<ICharacterAttribute>();
+            }
+            
+            foreach (var attribute in serializedAttributes)
+            {
+                if (attribute == null)
+                {
+                    continue;
+                }
+
+                var type = attribute.GetType();
+                if (!attributeMap.ContainsKey(type))
+                {
+                    attributeMap.Add(type, attribute);
+                }
             }
             initialized = true;
         }
@@ -47,7 +61,13 @@ namespace BrightSouls
             {
                 Initialize();
             }
-            attributeMap.Add(typeof(T), value);
+            if (value == null)
+            {
+                Debug.LogError($"Error: Attempted to add null attribute of type {typeof(T)}.");
+                return;
+            }
+
+            attributeMap[typeof(T)] = value;
         }
     }
 }

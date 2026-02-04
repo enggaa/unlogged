@@ -142,6 +142,18 @@ namespace BrightSouls.Gameplay
 
         private void InitializeInput()
         {
+            if (input == null)
+            {
+                Debug.LogError("Player input is missing on Player.");
+                return;
+            }
+
+            if (input.currentActionMap == null)
+            {
+                Debug.LogError("Player input has no current action map.");
+                return;
+            }
+
             input.currentActionMap.Enable();
         }
 
