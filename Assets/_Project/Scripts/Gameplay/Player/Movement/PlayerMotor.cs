@@ -61,6 +61,7 @@ namespace BrightSouls.Gameplay
         public MotionSourceType MotionSource;
         private bool grounded = false;
         private Vector3 speed = Vector3.zero;
+        private Vector2 currentMoveInput = Vector2.zero;
 
         /* ------------------------------ Unity Events ------------------------------ */
 
@@ -117,6 +118,7 @@ namespace BrightSouls.Gameplay
                 return;
             }
 
+            Move.Execute(currentMoveInput);
             charController.Move(Speed * Time.deltaTime);
         }
 
@@ -161,8 +163,8 @@ namespace BrightSouls.Gameplay
                 return;
             }
 
-            move.performed += ctx => Move.Execute(move.ReadValue<Vector2>());
-            move.canceled += ctx => Move.Execute(Vector2.zero);
+            move.performed += ctx => currentMoveInput = move.ReadValue<Vector2>();
+            move.canceled += ctx => currentMoveInput = Vector2.zero;
         }
 
         /* ----------------------------- Public Methods ----------------------------- */
