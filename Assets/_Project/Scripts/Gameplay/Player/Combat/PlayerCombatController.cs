@@ -39,6 +39,24 @@ namespace BrightSouls.Gameplay
 
         /* ------------------------- MonoBehaviour Callbacks ------------------------ */
 
+        private void Awake()
+        {
+            if (player == null)
+            {
+                player = GetComponent<Player>();
+            }
+
+            if (player == null)
+            {
+                player = GetComponentInParent<Player>();
+            }
+
+            if (player == null)
+            {
+                player = GetComponentInChildren<Player>();
+            }
+        }
+
         private void Start()
         {
             InitializeComponentReferences();
@@ -85,8 +103,15 @@ namespace BrightSouls.Gameplay
 
             if (player.Input.currentActionMap == null)
             {
-                Debug.LogError("PlayerCombatController could not find a current action map.");
-                return;
+                if (player.Input.actions != null && player.Input.actions.actionMaps.Count > 0)
+                {
+                    player.Input.SwitchCurrentActionMap(player.Input.actions.actionMaps[0].name);
+                }
+                else
+                {
+                    Debug.LogError("PlayerCombatController could not find a current action map.");
+                    return;
+                }
             }
 
             var attack = player.Input.currentActionMap.FindAction("Attack");
@@ -122,8 +147,11 @@ namespace BrightSouls.Gameplay
             var attackSourceDirection = (attack.Source.transform.position - player.transform.position).normalized;
 
             // TODO Separate animation handling from combat processing
-            player.Anim.SetFloat("damage_dir_x", attackSourceDirection.x);
-            player.Anim.SetFloat("damage_dir_y", attackSourceDirection.z);
+            if (player.Anim != null && player.Anim.runtimeAnimatorController != null)
+            {
+                player.Anim.SetFloat("damage_dir_x", attackSourceDirection.x);
+                player.Anim.SetFloat("damage_dir_y", attackSourceDirection.z);
+            }
 
             // TODO Separate logging from combat processing
             Debug.LogFormat("COMBAT: {0} got hit by {1} from {2}", player, attack.Source, attackSourceDirection);

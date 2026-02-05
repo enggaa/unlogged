@@ -106,8 +106,36 @@ namespace BrightSouls.AI
 
         /* ------------------------------ Unity Events ------------------------------ */
 
+        private void Awake()
+        {
+            if (navAgent == null)
+            {
+                navAgent = GetComponent<NavMeshAgent>();
+            }
+
+            if (animator == null)
+            {
+                animator = GetComponent<Animator>();
+            }
+
+            if (navAgent == null)
+            {
+                Debug.LogError($"AICharacter \"{name}\" is missing a NavMeshAgent component.");
+            }
+
+            if (animator == null)
+            {
+                Debug.LogError($"AICharacter \"{name}\" is missing an Animator component.");
+            }
+        }
+
         private void Update()
         {
+            if (navAgent == null || animator == null)
+            {
+                return;
+            }
+
             UpdateMove();
             UpdateAcceleration();
         }
@@ -137,6 +165,11 @@ namespace BrightSouls.AI
 
         public void SetMovementControl(AIMovementControlType moveType)
         {
+            if (navAgent == null || animator == null)
+            {
+                return;
+            }
+
             this._movementType = moveType;
 
             if (_movementType == AIMovementControlType.NavAgent)
@@ -172,6 +205,11 @@ namespace BrightSouls.AI
 
         private void UpdateMove()
         {
+            if (navAgent == null)
+            {
+                return;
+            }
+
             navAgent.speed = Mathf.Lerp(navAgent.speed, CurrentMoveSpeed, navAgent.acceleration * Time.deltaTime);
             if (_movementType == AIMovementControlType.NavAgent)
             {
@@ -192,6 +230,11 @@ namespace BrightSouls.AI
 
         private void UpdateAcceleration()
         {
+            if (animator == null || animator.runtimeAnimatorController == null || navAgent == null)
+            {
+                return;
+            }
+
             var x = animator.GetFloat("move_x");
             x = Mathf.Lerp(x, Movement.x, navAgent.acceleration * Time.deltaTime);
             animator.SetFloat("move_x", x);

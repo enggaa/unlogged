@@ -17,10 +17,19 @@ namespace BrightSouls.AI
         private void Start()
         {
             owner = GetComponentInParent<AICharacter>();
+            if (owner == null)
+            {
+                Debug.LogWarning($"{nameof(AIDetectionArea)} on \"{name}\" could not find an AICharacter owner.");
+            }
         }
 
         private void OnTriggerEnter(Collider other)
         {
+            if (owner == null || other == null)
+            {
+                return;
+            }
+
             Vector3 dir = (other.transform.position - transform.position).normalized;
             Ray r = new Ray(transform.position, dir);
             ICombatCharacter otherCharacter = other.GetComponent<ICombatCharacter>();

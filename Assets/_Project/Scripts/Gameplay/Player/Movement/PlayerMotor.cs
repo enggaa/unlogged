@@ -37,7 +37,7 @@ namespace BrightSouls.Gameplay
             set
             {
                 speed = value;
-                if (player != null && player.Anim != null)
+                if (HasAnimatorController())
                 {
                     player.Anim.SetFloat("speed_y", speed.y);
                 }
@@ -54,6 +54,8 @@ namespace BrightSouls.Gameplay
         [SerializeField] private PlayerPhysicsData physicsData;
         [SerializeField] private WorldPhysicsData  worldPhysicsData;
 
+        [Header("Fallback Movement")]
+        [SerializeField] private float fallbackMoveSpeed = 4f;
         /* ----------------------------- Runtime Fields ----------------------------- */
 
         public MotionSourceType MotionSource;
@@ -61,6 +63,39 @@ namespace BrightSouls.Gameplay
         private Vector3 speed = Vector3.zero;
 
         /* ------------------------------ Unity Events ------------------------------ */
+
+        private void Awake()
+        {
+            if (player == null)
+            {
+                player = GetComponent<Player>();
+            }
+
+            if (player == null)
+            {
+                player = GetComponentInParent<Player>();
+            }
+
+            if (player == null)
+            {
+                player = GetComponentInChildren<Player>();
+            }
+
+            if (charController == null)
+            {
+                charController = GetComponent<CharacterController>();
+            }
+
+            if (charController == null)
+            {
+                charController = GetComponentInParent<CharacterController>();
+            }
+
+            if (charController == null)
+            {
+                charController = GetComponentInChildren<CharacterController>();
+            }
+        }
 
         private void Start()
         {
@@ -102,14 +137,21 @@ namespace BrightSouls.Gameplay
         {
             if (player == null || player.Input == null)
             {
-                Debug.LogError("PlayerMotor requires Player input.");
+                Debug.LogWarning("PlayerMotor requires Player input.");
                 return;
             }
 
             if (player.Input.currentActionMap == null)
             {
-                Debug.LogError("PlayerMotor could not find a current action map.");
-                return;
+                if (player.Input.actions != null && player.Input.actions.actionMaps.Count > 0)
+                {
+                    player.Input.SwitchCurrentActionMap(player.Input.actions.actionMaps[0].name);
+                }
+                else
+                {
+                    Debug.LogWarning("PlayerMotor could not find a current action map.");
+                    return;
+                }
             }
 
             var move = player.Input.currentActionMap.FindAction("Move");
@@ -134,10 +176,20 @@ namespace BrightSouls.Gameplay
 
             input = ClampMovementInput(input);
             var moveSpeedMultiplier = GetMovementSpeedMultiplier();
-            // Actual transform movement is handled by the animator
-            player.Anim.SetFloat("move_speed", input.magnitude);
-            player.Anim.SetFloat("move_x", input.x * moveSpeedMultiplier);
-            player.Anim.SetFloat("move_y", input.y * moveSpeedMultiplier);
+            if (HasAnimatorController())
+            {
+                // Actual transform movement is handled by the animator
+                player.Anim.SetFloat("move_speed", input.magnitude);
+                player.Anim.SetFloat("move_x", input.x * moveSpeedMultiplier);
+                player.Anim.SetFloat("move_y", input.y * moveSpeedMultiplier);
+            }
+            else if (charController != null)
+            {
+                var moveDir = new Vector3(input.x, 0f, input.y);
+                moveDir = transform.TransformDirection(moveDir);
+                var move = moveDir * (fallbackMoveSpeed * moveSpeedMultiplier) * Time.deltaTime;
+                charController.Move(move);
+            }
         }
 
         /* ----------------------------- Private Methods ---------------------------- */
@@ -163,7 +215,7 @@ namespace BrightSouls.Gameplay
         {
             var ray = new Ray(transform.position, Vector3.down);
             grounded = Physics.SphereCast(ray, charController.radius + 0.1f, charController.height / 2f + 0.5f, physicsData.GroundDetectionLayers.value);
-            if (player != null && player.Anim != null)
+            if (HasAnimatorController())
             {
                 player.Anim.SetBool("grounded", grounded);
                 // Animator also applies gravity, so when not grounded disable animator physics
@@ -233,6 +285,12 @@ namespace BrightSouls.Gameplay
             var forward = transform.forward;
             var flattened = new Vector2(forward.x, forward.z);
             return flattened.sqrMagnitude > 0f ? flattened.normalized : Vector2.zero;
+        }
+        private bool HasAnimatorController()
+        {
+            return player != null
+                && player.Anim != null
+                && player.Anim.runtimeAnimatorController != null;
         }
 
         /* -------------------------------------------------------------------------- */
