@@ -61,7 +61,7 @@ namespace BrightSouls.Gameplay
         public MotionSourceType MotionSource;
         private bool grounded = false;
         private Vector3 speed = Vector3.zero;
-        private Vector2 currentMoveInput = Vector2.zero;
+        private UnityEngine.InputSystem.InputAction moveAction;
 
         /* ------------------------------ Unity Events ------------------------------ */
 
@@ -118,7 +118,8 @@ namespace BrightSouls.Gameplay
                 return;
             }
 
-            Move.Execute(currentMoveInput);
+            var moveInput = ReadMoveInput();
+            Move.Execute(moveInput);
             charController.Move(Speed * Time.deltaTime);
         }
 
@@ -139,7 +140,6 @@ namespace BrightSouls.Gameplay
         {
             if (player == null || player.Input == null)
             {
-                Debug.LogWarning("PlayerMotor requires Player input.");
                 return;
             }
 
@@ -151,20 +151,11 @@ namespace BrightSouls.Gameplay
                 }
                 else
                 {
-                    Debug.LogWarning("PlayerMotor could not find a current action map.");
                     return;
                 }
             }
 
-            var move = player.Input.currentActionMap.FindAction("Move");
-            if (move == null)
-            {
-                Debug.LogError("PlayerMotor could not find Move action.");
-                return;
-            }
-
-            move.performed += ctx => currentMoveInput = move.ReadValue<Vector2>();
-            move.canceled += ctx => currentMoveInput = Vector2.zero;
+            moveAction = player.Input.currentActionMap.FindAction("Move");
         }
 
         /* ----------------------------- Public Methods ----------------------------- */
@@ -288,6 +279,21 @@ namespace BrightSouls.Gameplay
             var flattened = new Vector2(forward.x, forward.z);
             return flattened.sqrMagnitude > 0f ? flattened.normalized : Vector2.zero;
         }
+        private Vector2 ReadMoveInput()
+        {
+            if (moveAction == null && player != null && player.Input != null && player.Input.currentActionMap != null)
+            {
+                moveAction = player.Input.currentActionMap.FindAction("Move");
+            }
+
+            if (moveAction != null && moveAction.enabled)
+            {
+                return moveAction.ReadValue<Vector2>();
+            }
+
+            return Vector2.zero;
+        }
+
         private bool HasAnimatorController()
         {
             return player != null
