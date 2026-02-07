@@ -1,6 +1,8 @@
 using UnityEngine;
 using BrightSouls.Gameplay;
 using BrightSouls.AI;
+using UnityEngine.AI;
+using Unity.AI.Navigation;
 
 namespace BrightSouls.Testing
 {
@@ -29,6 +31,7 @@ namespace BrightSouls.Testing
         [Header("Test Environment")]
         [SerializeField] private Material groundMaterial;
         [SerializeField] private Vector3 groundSize = new Vector3(50, 1, 50);
+        [SerializeField] private bool buildNavMeshAtRuntime = true;
         
         [Header("Debug")]
         [SerializeField] private bool showDebugInfo = true;
@@ -77,6 +80,18 @@ namespace BrightSouls.Testing
             
             // NavMesh를 위한 레이어 설정
             ground.layer = LayerMask.NameToLayer("Default");
+
+            if (buildNavMeshAtRuntime)
+            {
+                var surface = ground.GetComponent<NavMeshSurface>();
+                if (surface == null)
+                {
+                    surface = ground.AddComponent<NavMeshSurface>();
+                }
+
+                surface.collectObjects = CollectObjects.All;
+                surface.BuildNavMesh();
+            }
         }
         
         /// <summary>
@@ -127,6 +142,16 @@ namespace BrightSouls.Testing
                     enemy.name = $"TestEnemy_{i}";
                     enemy.Target = player; // 플레이어를 타겟으로 설정
                     enemies[i] = enemy;
+
+                    if (buildNavMeshAtRuntime)
+                    {
+                        var navAgent = enemy.GetComponent<NavMeshAgent>();
+                        if (navAgent != null && !navAgent.isOnNavMesh)
+                        {
+                            navAgent.enabled = false;
+                            navAgent.enabled = true;
+                        }
+                    }
                 }
                 else
                 {

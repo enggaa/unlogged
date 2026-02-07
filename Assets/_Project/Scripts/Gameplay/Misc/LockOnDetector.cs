@@ -13,7 +13,16 @@ namespace BrightSouls.Gameplay
             {
                 List<ICombatCharacter> targets = new List<ICombatCharacter>(possibleTargets);
                 // TODO change PlayerStateDead to a generic dead character state
-                targets.RemoveAll((ICombatCharacter character) => { return character.IsDead || !character.transform.GetComponentInChildren<Renderer>().isVisible; });
+                targets.RemoveAll((ICombatCharacter character) =>
+                {
+                    if (character.IsDead)
+                    {
+                        return true;
+                    }
+
+                    var renderer = character.transform.GetComponentInChildren<Renderer>();
+                    return renderer == null || !renderer.isVisible;
+                });
                 return targets;
             }
         }

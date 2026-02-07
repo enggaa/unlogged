@@ -103,11 +103,46 @@ namespace BrightSouls.AI
         private AIMovementControlType _movementType = AIMovementControlType.NavAgent;
         private float currentMoveSpeed = 4f;
         private Vector2 movement; // World-Space Movement Direction (X,Z) of AICharacter
+        private float fallbackSeekTimer = 0f;
+        private bool fallbackInitialized = false;
 
         /* ------------------------------ Unity Events ------------------------------ */
 
+        private void Awake()
+        {
+            if (navAgent == null)
+            {
+                navAgent = GetComponent<NavMeshAgent>();
+            }
+
+            if (animator == null)
+            {
+                animator = GetComponent<Animator>();
+            }
+
+            if (navAgent == null)
+            {
+                Debug.LogError($"AICharacter \"{name}\" is missing a NavMeshAgent component.");
+            }
+
+            if (animator == null)
+            {
+                Debug.LogError($"AICharacter \"{name}\" is missing an Animator component.");
+            }
+        }
+
         private void Update()
         {
+            if (navAgent == null || animator == null)
+            {
+                return;
+            }
+
+            if (Fsm == null && HasTarget)
+            {
+                UpdateFallbackBehavior();
+            }
+
             UpdateMove();
             UpdateAcceleration();
         }
@@ -137,6 +172,11 @@ namespace BrightSouls.AI
 
         public void SetMovementControl(AIMovementControlType moveType)
         {
+            if (navAgent == null || animator == null)
+            {
+                return;
+            }
+
             this._movementType = moveType;
 
             if (_movementType == AIMovementControlType.NavAgent)
@@ -161,11 +201,22 @@ namespace BrightSouls.AI
         public void Attack(int attackId)
         {
             var weapon = GetComponentInChildren<Weapon>();
+            if (weapon == null)
+            {
+                Debug.LogWarning($"AICharacter \"{name}\" tried to attack without a Weapon component.");
+                return;
+            }
+
             weapon.OnAttack(attackId);
         }
 
         private void UpdateMove()
         {
+            if (navAgent == null)
+            {
+                return;
+            }
+
             navAgent.speed = Mathf.Lerp(navAgent.speed, CurrentMoveSpeed, navAgent.acceleration * Time.deltaTime);
             if (_movementType == AIMovementControlType.NavAgent)
             {
@@ -186,6 +237,11 @@ namespace BrightSouls.AI
 
         private void UpdateAcceleration()
         {
+            if (animator == null || animator.runtimeAnimatorController == null || navAgent == null)
+            {
+                return;
+            }
+
             var x = animator.GetFloat("move_x");
             x = Mathf.Lerp(x, Movement.x, navAgent.acceleration * Time.deltaTime);
             animator.SetFloat("move_x", x);
@@ -193,6 +249,30 @@ namespace BrightSouls.AI
             var y = animator.GetFloat("move_y");
             y = Mathf.Lerp(y, Movement.y, navAgent.acceleration * Time.deltaTime);
             animator.SetFloat("move_y", y);
+        }
+
+        /* ------------------------- Fallback Behavior (No FSM) --------------------- */
+
+        private void UpdateFallbackBehavior()
+        {
+            if (!fallbackInitialized)
+            {
+                fallbackInitialized = true;
+                SetMovementControl(AIMovementControlType.NavAgent);
+                CurrentMoveSpeed = RunMoveSpeed;
+            }
+
+            if (!navAgent.isOnNavMesh)
+            {
+                return;
+            }
+
+            fallbackSeekTimer += Time.deltaTime;
+            if (fallbackSeekTimer >= 0.5f)
+            {
+                fallbackSeekTimer = 0f;
+                navAgent.SetDestination(Target.transform.position);
+            }
         }
 
         /* --------------------------------- Helpers -------------------------------- */

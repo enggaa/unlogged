@@ -30,10 +30,35 @@ namespace UnityPatterns.FiniteStateMachine
         private void Start()
         {
             defaultName = gameObject.name;
+            if (stateMachine == null)
+            {
+                Debug.LogError($"StateMachineController on \"{defaultName}\" has no SerializedStateMachine assigned.");
+                return;
+            }
+
+            if (currentState == null)
+            {
+                var initialState = stateMachine.DefaultState ?? (stateMachine.States != null && stateMachine.States.Length > 0
+                    ? stateMachine.States[0]
+                    : null);
+                if (initialState != null)
+                {
+                    SetState(initialState);
+                }
+                else
+                {
+                    Debug.LogError($"StateMachineController on \"{defaultName}\" has no default or configured states.");
+                }
+            }
         }
 
         private void Update()
         {
+            if (currentState == null)
+            {
+                return;
+            }
+
             CheckTransitions();
             currentStateTime += Time.deltaTime;
             currentState.OnStateUpdate(this);
@@ -97,11 +122,16 @@ namespace UnityPatterns.FiniteStateMachine
 
         private void CheckTransitions()
         {
+            if (stateMachine == null || stateMachine.Transitions == null)
+            {
+                return;
+            }
+
             foreach (var transition in stateMachine.Transitions)
             {
                 if (transition.Source == currentState)
                 {
-                    if (transition.Condition.Validate(this))
+                    if (transition.Condition != null && transition.Condition.Validate(this))
                     {
                         IState source = transition.Source;
                         IState target = transition.Target;

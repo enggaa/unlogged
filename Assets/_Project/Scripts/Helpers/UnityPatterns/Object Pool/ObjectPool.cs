@@ -13,6 +13,16 @@ namespace Patterns.ObjectPool
 
         public ObjectPool(T prefab, int size)
         {
+            if (prefab == null)
+            {
+                throw new ArgumentNullException(nameof(prefab));
+            }
+
+            if (size <= 0)
+            {
+                throw new ArgumentOutOfRangeException(nameof(size), "ObjectPool size must be greater than zero.");
+            }
+
             this.prefab = prefab;
             this.size = size;
             this.initialized = false;
@@ -36,6 +46,11 @@ namespace Patterns.ObjectPool
 
         public T Fetch()
         {
+            if (pool == null || pool.Length == 0)
+            {
+                return null;
+            }
+
             T item = pool[iterator % pool.Length];
             iterator = (iterator + 1) % pool.Length;
             return item;

@@ -39,6 +39,24 @@ namespace BrightSouls.Gameplay
 
         /* ------------------------- MonoBehaviour Callbacks ------------------------ */
 
+        private void Awake()
+        {
+            if (player == null)
+            {
+                player = GetComponent<Player>();
+            }
+
+            if (player == null)
+            {
+                player = GetComponentInParent<Player>();
+            }
+
+            if (player == null)
+            {
+                player = GetComponentInChildren<Player>();
+            }
+        }
+
         private void Start()
         {
             InitializeComponentReferences();
@@ -47,6 +65,11 @@ namespace BrightSouls.Gameplay
 
         private void Update()
         {
+            if (player == null || data == null)
+            {
+                return;
+            }
+
             // TODO Refactor this into a PlayerBody class, responsible for animation
             bool playerHasTarget = player.CameraDirector?.CurrentCamera?.IsLockOnCamera ?? false;
             bool playerIsDodging = player.State.IsDodging;
@@ -60,13 +83,45 @@ namespace BrightSouls.Gameplay
 
         private void InitializeComponentReferences()
         {
+            if (player == null)
+            {
+                Debug.LogError("PlayerCombatController requires a Player reference.");
+                return;
+            }
+
             commands = new PlayerCombatCommands(player);
+            events = new PlayerCombatEvents();
         }
 
         private void InitializeInput()
         {
+            if (player == null || player.Input == null)
+            {
+                Debug.LogError("PlayerCombatController requires Player input.");
+                return;
+            }
+
+            if (player.Input.currentActionMap == null)
+            {
+                if (player.Input.actions != null && player.Input.actions.actionMaps.Count > 0)
+                {
+                    player.Input.SwitchCurrentActionMap(player.Input.actions.actionMaps[0].name);
+                }
+                else
+                {
+                    Debug.LogError("PlayerCombatController could not find a current action map.");
+                    return;
+                }
+            }
+
             var attack = player.Input.currentActionMap.FindAction("Attack");
             var defend = player.Input.currentActionMap.FindAction("Defend");
+
+            if (attack == null || defend == null)
+            {
+                Debug.LogError("PlayerCombatController could not find Attack or Defend actions.");
+                return;
+            }
 
             attack.performed += ctx => commands.Attack.Execute(0);
             defend.started += ctx => commands.Defend.Execute(true);
@@ -77,6 +132,11 @@ namespace BrightSouls.Gameplay
 
         public void OnGetHit(Attack attack)
         {
+            if (player == null || attack == null || attack.Source == null || events == null)
+            {
+                return;
+            }
+
             bool playerIsInvincible = player.Attributes.Status.HasStatus(CharacterStatus.IFrames);
             if (playerIsInvincible)
             {
@@ -87,8 +147,11 @@ namespace BrightSouls.Gameplay
             var attackSourceDirection = (attack.Source.transform.position - player.transform.position).normalized;
 
             // TODO Separate animation handling from combat processing
-            player.Anim.SetFloat("damage_dir_x", attackSourceDirection.x);
-            player.Anim.SetFloat("damage_dir_y", attackSourceDirection.z);
+            if (player.Anim != null && player.Anim.runtimeAnimatorController != null)
+            {
+                player.Anim.SetFloat("damage_dir_x", attackSourceDirection.x);
+                player.Anim.SetFloat("damage_dir_y", attackSourceDirection.z);
+            }
 
             // TODO Separate logging from combat processing
             Debug.LogFormat("COMBAT: {0} got hit by {1} from {2}", player, attack.Source, attackSourceDirection);
@@ -146,6 +209,11 @@ namespace BrightSouls.Gameplay
         /// </summary>
         private bool CheckBlockSuccess(Attack attack)
         {
+            if (attack == null || attack.Source == null || player == null || data == null || player.Motor == null)
+            {
+                return false;
+            }
+
             ICombatCharacter enemy = attack.Source;
             var dirPlayerForward = player.Motor.GetDirectionInXZPlane();
             var dirPlayerToEnemy = (enemy.transform.position - player.transform.position).normalized;
@@ -159,7 +227,17 @@ namespace BrightSouls.Gameplay
         /// </summary>
         private void FaceTarget()
         {
+            if (player == null || player.CameraDirector == null)
+            {
+                return;
+            }
+
             var lockOnCamera = player.CameraDirector.GetCamera<LockOnCamera>();
+            if (lockOnCamera == null || lockOnCamera.Target == null)
+            {
+                return;
+            }
+
             var targetPosition = lockOnCamera.Target.transform.position;
             var targetOffset = targetPosition - player.transform.position;
             // Ignore vertical position difference so the player doesn't face upwards or downwards.

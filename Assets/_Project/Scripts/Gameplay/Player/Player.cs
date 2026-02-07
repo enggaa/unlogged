@@ -133,6 +133,24 @@ namespace BrightSouls.Gameplay
 
         /* ------------------------------ Unity Events ------------------------------ */
 
+        private void Awake()
+        {
+            if (input == null)
+            {
+                input = GetComponent<PlayerInput>();
+            }
+
+            if (input == null)
+            {
+                input = GetComponentInChildren<PlayerInput>();
+            }
+
+            if (input == null)
+            {
+                input = GetComponentInParent<PlayerInput>();
+            }
+        }
+
         private void Start()
         {
             InitializeInput();
@@ -142,6 +160,25 @@ namespace BrightSouls.Gameplay
 
         private void InitializeInput()
         {
+            if (input == null)
+            {
+                Debug.LogError("Player input is missing on Player.");
+                return;
+            }
+
+            if (input.currentActionMap == null)
+            {
+                if (input.actions != null && input.actions.actionMaps.Count > 0)
+                {
+                    input.SwitchCurrentActionMap(input.actions.actionMaps[0].name);
+                }
+                else
+                {
+                    Debug.LogError("Player input has no current action map.");
+                    return;
+                }
+            }
+
             input.currentActionMap.Enable();
         }
 

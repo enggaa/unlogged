@@ -9,37 +9,61 @@ namespace BrightSouls.Gameplay
 
         public bool IsDead
         {
-            get => Fsm.IsInState<PlayerStateDead>();
+            get => fsm != null && fsm.IsInState<PlayerStateDead>();
         }
 
         public bool IsAttacking
         {
-            get => Fsm.IsInAnyState(typeof(PlayerStateAttacking), typeof(PlayerStateComboing), typeof(PlayerStateComboEnding));
+            get => fsm != null && fsm.IsInAnyState(typeof(PlayerStateAttacking), typeof(PlayerStateComboing), typeof(PlayerStateComboEnding));
         }
 
         public bool IsStaggered
         {
-            get => Fsm.IsInState<PlayerStateStaggered>();
+            get => fsm != null && fsm.IsInState<PlayerStateStaggered>();
         }
 
         public bool IsBlocking
         {
-            get => Fsm.IsInState<PlayerStateBlocking>();
+            get => fsm != null && fsm.IsInState<PlayerStateBlocking>();
         }
 
         public bool IsDodging
         {
-            get => Fsm.IsInState<PlayerStateDodging>();
+            get => fsm != null && fsm.IsInState<PlayerStateDodging>();
         }
 
         public bool IsJumping
         {
-            get => Fsm.IsInState<PlayerStateJumping>();
+            get => fsm != null && fsm.IsInState<PlayerStateJumping>();
         }
 
         public StateMachineController Fsm
         {
-            get => null;
+            get => fsm;
+        }
+
+        /* ------------------------ Inspector-Assigned Fields ----------------------- */
+
+        [SerializeField] private StateMachineController fsm;
+
+        /* ------------------------------ Unity Events ------------------------------ */
+
+        private void Awake()
+        {
+            if (fsm == null)
+            {
+                fsm = GetComponent<StateMachineController>();
+            }
+
+            if (fsm == null)
+            {
+                fsm = GetComponentInChildren<StateMachineController>();
+            }
+
+            if (fsm == null)
+            {
+                fsm = GetComponentInParent<StateMachineController>();
+            }
         }
     }
 }

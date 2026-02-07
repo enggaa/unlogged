@@ -37,7 +37,10 @@ namespace BrightSouls.Gameplay
             set
             {
                 speed = value;
-                player.Anim.SetFloat("speed_y", speed.y);
+                if (HasAnimatorController())
+                {
+                    player.Anim.SetFloat("speed_y", speed.y);
+                }
             }
         }
 
@@ -51,13 +54,49 @@ namespace BrightSouls.Gameplay
         [SerializeField] private PlayerPhysicsData physicsData;
         [SerializeField] private WorldPhysicsData  worldPhysicsData;
 
+        [Header("Fallback Movement")]
+        [SerializeField] private float fallbackMoveSpeed = 4f;
         /* ----------------------------- Runtime Fields ----------------------------- */
 
         public MotionSourceType MotionSource;
         private bool grounded = false;
         private Vector3 speed = Vector3.zero;
+        private UnityEngine.InputSystem.InputAction moveAction;
 
         /* ------------------------------ Unity Events ------------------------------ */
+
+        private void Awake()
+        {
+            if (player == null)
+            {
+                player = GetComponent<Player>();
+            }
+
+            if (player == null)
+            {
+                player = GetComponentInParent<Player>();
+            }
+
+            if (player == null)
+            {
+                player = GetComponentInChildren<Player>();
+            }
+
+            if (charController == null)
+            {
+                charController = GetComponent<CharacterController>();
+            }
+
+            if (charController == null)
+            {
+                charController = GetComponentInParent<CharacterController>();
+            }
+
+            if (charController == null)
+            {
+                charController = GetComponentInChildren<CharacterController>();
+            }
+        }
 
         private void Start()
         {
@@ -67,6 +106,11 @@ namespace BrightSouls.Gameplay
 
         private void Update()
         {
+            if (player == null || charController == null || physicsData == null || worldPhysicsData == null)
+            {
+                return;
+            }
+
             GravityUpdate();
 
             if (player.State.IsDead)
@@ -74,6 +118,8 @@ namespace BrightSouls.Gameplay
                 return;
             }
 
+            var moveInput = ReadMoveInput();
+            Move.Execute(moveInput);
             charController.Move(Speed * Time.deltaTime);
         }
 
@@ -81,26 +127,62 @@ namespace BrightSouls.Gameplay
 
         private void InitializeCommands()
         {
+            if (player == null)
+            {
+                Debug.LogError("PlayerMotor requires a Player reference.");
+                return;
+            }
+
             Move = new MoveCommand(this.player);
         }
 
         private void InitializeInput()
         {
-            var move = player.Input.currentActionMap.FindAction("Move");
-            move.performed += ctx => Move.Execute(move.ReadValue<Vector2>());
-            move.canceled += ctx => Move.Execute(Vector2.zero);
+            if (player == null || player.Input == null)
+            {
+                return;
+            }
+
+            if (player.Input.currentActionMap == null)
+            {
+                if (player.Input.actions != null && player.Input.actions.actionMaps.Count > 0)
+                {
+                    player.Input.SwitchCurrentActionMap(player.Input.actions.actionMaps[0].name);
+                }
+                else
+                {
+                    return;
+                }
+            }
+
+            moveAction = player.Input.currentActionMap.FindAction("Move");
         }
 
         /* ----------------------------- Public Methods ----------------------------- */
 
         public void PerformGroundMovement(Vector2 input)
         {
+            if (player == null || player.Anim == null)
+            {
+                return;
+            }
+
             input = ClampMovementInput(input);
             var moveSpeedMultiplier = GetMovementSpeedMultiplier();
-            // Actual transform movement is handled by the animator
-            player.Anim.SetFloat("move_speed", input.magnitude);
-            player.Anim.SetFloat("move_x", input.x * moveSpeedMultiplier);
-            player.Anim.SetFloat("move_y", input.y * moveSpeedMultiplier);
+            if (HasAnimatorController())
+            {
+                // Actual transform movement is handled by the animator
+                player.Anim.SetFloat("move_speed", input.magnitude);
+                player.Anim.SetFloat("move_x", input.x * moveSpeedMultiplier);
+                player.Anim.SetFloat("move_y", input.y * moveSpeedMultiplier);
+            }
+            else if (charController != null)
+            {
+                var moveDir = new Vector3(input.x, 0f, input.y);
+                moveDir = transform.TransformDirection(moveDir);
+                var move = moveDir * (fallbackMoveSpeed * moveSpeedMultiplier) * Time.deltaTime;
+                charController.Move(move);
+            }
         }
 
         /* ----------------------------- Private Methods ---------------------------- */
@@ -126,9 +208,12 @@ namespace BrightSouls.Gameplay
         {
             var ray = new Ray(transform.position, Vector3.down);
             grounded = Physics.SphereCast(ray, charController.radius + 0.1f, charController.height / 2f + 0.5f, physicsData.GroundDetectionLayers.value);
-            player.Anim.SetBool("grounded", grounded);
-            // Animator also applies gravity, so when not grounded disable animator physics
-            player.Anim.applyRootMotion = grounded;
+            if (HasAnimatorController())
+            {
+                player.Anim.SetBool("grounded", grounded);
+                // Animator also applies gravity, so when not grounded disable animator physics
+                player.Anim.applyRootMotion = grounded;
+            }
         }
 
         private void OnHitGround()
@@ -190,8 +275,30 @@ namespace BrightSouls.Gameplay
 
         public Vector2 GetDirectionInXZPlane()
         {
-            // TODO implement GetDirectionInXZPlane in PlayerMotor
+            var forward = transform.forward;
+            var flattened = new Vector2(forward.x, forward.z);
+            return flattened.sqrMagnitude > 0f ? flattened.normalized : Vector2.zero;
+        }
+        private Vector2 ReadMoveInput()
+        {
+            if (moveAction == null && player != null && player.Input != null && player.Input.currentActionMap != null)
+            {
+                moveAction = player.Input.currentActionMap.FindAction("Move");
+            }
+
+            if (moveAction != null && moveAction.enabled)
+            {
+                return moveAction.ReadValue<Vector2>();
+            }
+
             return Vector2.zero;
+        }
+
+        private bool HasAnimatorController()
+        {
+            return player != null
+                && player.Anim != null
+                && player.Anim.runtimeAnimatorController != null;
         }
 
         /* -------------------------------------------------------------------------- */
