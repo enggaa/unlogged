@@ -103,6 +103,8 @@ namespace BrightSouls.AI
         private AIMovementControlType _movementType = AIMovementControlType.NavAgent;
         private float currentMoveSpeed = 4f;
         private Vector2 movement; // World-Space Movement Direction (X,Z) of AICharacter
+        private float fallbackSeekTimer = 0f;
+        private bool fallbackInitialized = false;
 
         /* ------------------------------ Unity Events ------------------------------ */
 
@@ -134,6 +136,11 @@ namespace BrightSouls.AI
             if (navAgent == null || animator == null)
             {
                 return;
+            }
+
+            if (Fsm == null && HasTarget)
+            {
+                UpdateFallbackBehavior();
             }
 
             UpdateMove();
@@ -242,6 +249,30 @@ namespace BrightSouls.AI
             var y = animator.GetFloat("move_y");
             y = Mathf.Lerp(y, Movement.y, navAgent.acceleration * Time.deltaTime);
             animator.SetFloat("move_y", y);
+        }
+
+        /* ------------------------- Fallback Behavior (No FSM) --------------------- */
+
+        private void UpdateFallbackBehavior()
+        {
+            if (!fallbackInitialized)
+            {
+                fallbackInitialized = true;
+                SetMovementControl(AIMovementControlType.NavAgent);
+                CurrentMoveSpeed = RunMoveSpeed;
+            }
+
+            if (!navAgent.isOnNavMesh)
+            {
+                return;
+            }
+
+            fallbackSeekTimer += Time.deltaTime;
+            if (fallbackSeekTimer >= 0.5f)
+            {
+                fallbackSeekTimer = 0f;
+                navAgent.SetDestination(Target.transform.position);
+            }
         }
 
         /* --------------------------------- Helpers -------------------------------- */

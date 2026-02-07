@@ -90,6 +90,11 @@ namespace BrightSouls.AI
 
         private void ChooseAttack(AICharacter agent)
         {
+            if (agent.Fsm == null)
+            {
+                return;
+            }
+
             bool attackOnCooldown = agent.Fsm.CurrentStateTime < defaultAttackCooldown;
             bool comboOnCooldown = agent.Fsm.CurrentStateTime < minimalAttackCooldown;
             bool isInRange = agent.GetDistanceToTarget() < maxTargetDistance;
