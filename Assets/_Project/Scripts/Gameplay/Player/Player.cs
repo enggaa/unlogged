@@ -150,6 +150,21 @@ namespace BrightSouls.Gameplay
                 input = GetComponentInParent<PlayerInput>();
             }
 
+            // InputActionAsset이 할당되지 않은 경우, 프로젝트에서 "Player" 맵을 가진 에셋을 찾아 자동 할당
+            if (input != null && input.actions == null)
+            {
+                var assets = Resources.FindObjectsOfTypeAll<InputActionAsset>();
+                foreach (var asset in assets)
+                {
+                    if (asset.FindActionMap("Player") != null)
+                    {
+                        input.actions = asset;
+                        Debug.LogWarning($"PlayerInput had no InputActionAsset assigned — auto-assigned '{asset.name}'");
+                        break;
+                    }
+                }
+            }
+
             // Enable action map early so other components can find actions in their Start()
             InitializeInput();
         }
@@ -164,14 +179,14 @@ namespace BrightSouls.Gameplay
 
         private void InitializeInput()
         {
-            if (input == null)
+            if (input == null || input.actions == null)
             {
                 return;
             }
 
             if (input.currentActionMap == null)
             {
-                if (input.actions != null && input.actions.actionMaps.Count > 0)
+                if (input.actions.actionMaps.Count > 0)
                 {
                     input.SwitchCurrentActionMap(input.actions.actionMaps[0].name);
                 }

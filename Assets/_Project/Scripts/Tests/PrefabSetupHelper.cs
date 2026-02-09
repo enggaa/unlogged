@@ -1,5 +1,6 @@
 using UnityEngine;
 using UnityEngine.AI;
+using UnityEngine.InputSystem;
 using BrightSouls.Gameplay;
 using BrightSouls.AI;
 
@@ -43,12 +44,19 @@ namespace BrightSouls.Testing
         private void ValidatePlayerSetup(Player player)
         {
             Debug.Log($"Validating Player: {player.name}");
-            
+
             // Input System 체크
             if (player.Input == null && autoFixMissingComponents)
             {
                 Debug.LogWarning("PlayerInput missing - adding component");
                 gameObject.AddComponent<UnityEngine.InputSystem.PlayerInput>();
+            }
+
+            // InputActionAsset 체크
+            if (player.Input != null && player.Input.actions == null)
+            {
+                Debug.LogError("PlayerInput has no InputActionAsset assigned! Input will not work. " +
+                    "Assign InputSystem_Actions to the PlayerInput component on the player prefab.");
             }
             
             // Animator 체크
