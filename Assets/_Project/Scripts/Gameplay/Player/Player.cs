@@ -149,10 +149,14 @@ namespace BrightSouls.Gameplay
             {
                 input = GetComponentInParent<PlayerInput>();
             }
+
+            // Enable action map early so other components can find actions in their Start()
+            InitializeInput();
         }
 
         private void Start()
         {
+            // Retry in case Awake() ran before PlayerInput was fully ready
             InitializeInput();
         }
 
@@ -162,7 +166,6 @@ namespace BrightSouls.Gameplay
         {
             if (input == null)
             {
-                Debug.LogError("Player input is missing on Player.");
                 return;
             }
 
@@ -174,12 +177,14 @@ namespace BrightSouls.Gameplay
                 }
                 else
                 {
-                    Debug.LogError("Player input has no current action map.");
                     return;
                 }
             }
 
-            input.currentActionMap.Enable();
+            if (!input.currentActionMap.enabled)
+            {
+                input.currentActionMap.Enable();
+            }
         }
 
         /* -------------------------------------------------------------------------- */

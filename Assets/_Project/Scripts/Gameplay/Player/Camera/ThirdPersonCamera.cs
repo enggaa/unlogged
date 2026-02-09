@@ -59,6 +59,7 @@ namespace BrightSouls.Gameplay
         private float _yaw = 0f;
         private float _pitch = 0f;
         private Vector2 _inputAxis = Vector2.zero;
+        private bool _inputInitialized = false;
 
         /* ------------------------------ Unity Events ------------------------------ */
 
@@ -68,12 +69,20 @@ namespace BrightSouls.Gameplay
             InitializeInput();
 
             // 초기 회전값을 카메라 현재 회전으로 동기화
-            _yaw   = freeLookCamera.transform.eulerAngles.y;
-            _pitch = freeLookCamera.transform.eulerAngles.x;
+            if (freeLookCamera != null)
+            {
+                _yaw   = freeLookCamera.transform.eulerAngles.y;
+                _pitch = freeLookCamera.transform.eulerAngles.x;
+            }
         }
 
         private void LateUpdate()
         {
+            if (!_inputInitialized)
+            {
+                InitializeInput();
+            }
+
             if (player == null || freeLookCamera == null) return;
 
             // 회전 누적
@@ -102,8 +111,27 @@ namespace BrightSouls.Gameplay
 
         private void InitializeInput()
         {
+            if (_inputInitialized) return;
+
+            if (player == null || player.Input == null) return;
+
+            if (player.Input.currentActionMap == null)
+            {
+                if (player.Input.actions != null && player.Input.actions.actionMaps.Count > 0)
+                {
+                    player.Input.SwitchCurrentActionMap(player.Input.actions.actionMaps[0].name);
+                }
+                else
+                {
+                    return;
+                }
+            }
+
             var look = player.Input.currentActionMap.FindAction("Look");
+            if (look == null) return;
+
             look.performed += ctx => Look.Execute(look.ReadValue<Vector2>());
+            _inputInitialized = true;
         }
 
         /* --------------------------- Core Functionality --------------------------- */
