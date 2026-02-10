@@ -14,9 +14,9 @@ namespace BrightSouls.AI
         /* ------------------------ Inspector-Assigned Fields ----------------------- */
 
         [SerializeField] private float minTargetDistance = 1.5f;
-        [SerializeField] private float maxTargetDistance = 5f;
-        [SerializeField] private float idealTargetDistance = 4f;
-        [SerializeField] private float idealTargetDistanceThreshold = 0.2f;
+        [SerializeField] private float maxTargetDistance = 3.5f;
+        [SerializeField] private float idealTargetDistance = 2.5f;
+        [SerializeField] private float idealTargetDistanceThreshold = 0.3f;
         [SerializeField] private float turnSpeed = 4f;
         [SerializeField] private float minimalAttackCooldown = 0.5f;
         [SerializeField] private float defaultAttackCooldown = 3f;
@@ -24,16 +24,24 @@ namespace BrightSouls.AI
         [SerializeField] private float dodgeChance = 0.35f;
         [SerializeField] private float dashAttackThreshold = 4f;
         [SerializeField] private int   lightAttackChance = 70;
+        [SerializeField] private float strafeSpeed = 0.4f;
+        [SerializeField] private float strafeDirectionChangeInterval = 2f;
 
         /* ----------------------------- Runtime Fields ----------------------------- */
 
         private bool isAdjustingDistance = false;
+        private float strafeDirection = 1f;
+        private float strafeTimer = 0f;
+        private float behaviourTime = 0f;
 
         /* -------------------------- State Machine Events -------------------------- */
 
         public override void OnBehaviourStart(AICharacter agent)
         {
             isAdjustingDistance = false;
+            behaviourTime = 0f;
+            strafeTimer = 0f;
+            strafeDirection = Random.value > 0.5f ? 1f : -1f;
             agent.SetMovementControl(AICharacter.AIMovementControlType.Animator);
             agent.Movement = Vector2.zero;
             agent.CurrentMoveSpeed = agent.WalkMoveSpeed;
@@ -41,7 +49,9 @@ namespace BrightSouls.AI
 
         public override void OnBehaviourUpdate(AICharacter agent)
         {
+            behaviourTime += Time.deltaTime;
             LookAtTarget(agent);
+            UpdateStrafe(agent);
             AdjustCombatDistance(agent);
             ChooseAttack(agent);
         }
@@ -57,6 +67,16 @@ namespace BrightSouls.AI
             agent.transform.rotation = Quaternion.Lerp(agent.transform.rotation, Quaternion.LookRotation(agent.GetDirectionToTarget(), Vector3.up), turnSpeed * Time.deltaTime);
         }
 
+        private void UpdateStrafe(AICharacter agent)
+        {
+            strafeTimer += Time.deltaTime;
+            if (strafeTimer >= strafeDirectionChangeInterval)
+            {
+                strafeTimer = 0f;
+                strafeDirection = Random.value > 0.5f ? 1f : -1f;
+            }
+        }
+
         private void AdjustCombatDistance(AICharacter agent)
         {
             float dist = agent.GetDistanceToTarget();
@@ -67,8 +87,8 @@ namespace BrightSouls.AI
                 if (distanceDiff < idealTargetDistanceThreshold)
                 {
                     isAdjustingDistance = false;
-                    agent.CurrentMoveSpeed = 0f;
-                    agent.Movement = new Vector2(agent.Movement.x, 0f);
+                    agent.CurrentMoveSpeed = agent.WalkMoveSpeed;
+                    agent.Movement = new Vector2(strafeDirection * strafeSpeed, 0f);
                 }
             }
             else
@@ -77,21 +97,27 @@ namespace BrightSouls.AI
                 {
                     isAdjustingDistance = true;
                     agent.CurrentMoveSpeed = agent.WalkMoveSpeed;
-                    agent.Movement = new Vector2(agent.Movement.x, 0.5f);
+                    agent.Movement = new Vector2(strafeDirection * strafeSpeed, 0.5f);
                 }
                 else if (dist < minTargetDistance)
                 {
                     isAdjustingDistance = true;
                     agent.CurrentMoveSpeed = agent.WalkMoveSpeed;
-                    agent.Movement = new Vector2(agent.Movement.x, -0.5f);
+                    agent.Movement = new Vector2(strafeDirection * strafeSpeed, -0.5f);
+                }
+                else
+                {
+                    agent.CurrentMoveSpeed = agent.WalkMoveSpeed;
+                    agent.Movement = new Vector2(strafeDirection * strafeSpeed, 0f);
                 }
             }
         }
 
         private void ChooseAttack(AICharacter agent)
         {
-            bool attackOnCooldown = agent.Fsm.CurrentStateTime < defaultAttackCooldown;
-            bool comboOnCooldown = agent.Fsm.CurrentStateTime < minimalAttackCooldown;
+            float stateTime = agent.Fsm != null ? agent.Fsm.CurrentStateTime : behaviourTime;
+            bool attackOnCooldown = stateTime < defaultAttackCooldown;
+            bool comboOnCooldown = stateTime < minimalAttackCooldown;
             bool isInRange = agent.GetDistanceToTarget() < maxTargetDistance;
             bool targetIsAttacking = agent.Target.IsAttacking;
             bool canAttack = !attackOnCooldown || (targetIsAttacking && isInRange && !comboOnCooldown);

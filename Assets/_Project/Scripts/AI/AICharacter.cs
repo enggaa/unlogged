@@ -76,8 +76,7 @@ namespace BrightSouls.AI
 
         public StateMachineController Fsm
         {
-            // TODO Implement State Machine for AI Characters
-            get => null;
+            get => fsm;
         }
 
         /* --------------------------------- Events --------------------------------- */
@@ -89,6 +88,7 @@ namespace BrightSouls.AI
 
         [SerializeField] private NavMeshAgent navAgent;
         [SerializeField] private Animator animator;
+        [SerializeField] private StateMachineController fsm;
 
         /* ------------------------ Inspector-assigned Fields ----------------------- */
 
@@ -116,6 +116,11 @@ namespace BrightSouls.AI
             if (animator == null)
             {
                 animator = GetComponent<Animator>();
+            }
+
+            if (fsm == null)
+            {
+                fsm = GetComponent<StateMachineController>();
             }
 
             if (navAgent == null)

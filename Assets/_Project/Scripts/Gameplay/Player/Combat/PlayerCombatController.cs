@@ -114,18 +114,32 @@ namespace BrightSouls.Gameplay
                 }
             }
 
-            var attack = player.Input.currentActionMap.FindAction("Attack");
-            var defend = player.Input.currentActionMap.FindAction("Defend");
+            var actionMap = player.Input.currentActionMap;
 
-            if (attack == null || defend == null)
+            var attack = actionMap.FindAction("Attack");
+            if (attack != null)
             {
-                Debug.LogError("PlayerCombatController could not find Attack or Defend actions.");
-                return;
+                attack.performed += ctx => commands.Attack.Execute(0);
             }
 
-            attack.performed += ctx => commands.Attack.Execute(0);
-            defend.started += ctx => commands.Defend.Execute(true);
-            defend.canceled += ctx => commands.Defend.Execute(false);
+            var heavyAttack = actionMap.FindAction("HeavyAttack");
+            if (heavyAttack != null)
+            {
+                heavyAttack.performed += ctx => commands.Attack.Execute(1);
+            }
+
+            var defend = actionMap.FindAction("Defend");
+            if (defend != null)
+            {
+                defend.started += ctx => commands.Defend.Execute(true);
+                defend.canceled += ctx => commands.Defend.Execute(false);
+            }
+
+            var dodge = actionMap.FindAction("Dodge");
+            if (dodge != null)
+            {
+                dodge.performed += ctx => commands.Dodge.Execute();
+            }
         }
 
         /* ---------------------------- Event Processing ---------------------------- */
@@ -250,9 +264,11 @@ namespace BrightSouls.Gameplay
 
         public Vector3 ReadDodgeDirectionInCameraSpace()
         {
-            // Read input
-            float horizontal = Input.GetAxisRaw("Horizontal");
-            float vertical = Input.GetAxisRaw("Vertical");
+            // Read input from new Input System via PlayerMotor's current move input
+            var moveAction = player.Input.currentActionMap?.FindAction("Move");
+            Vector2 moveInput = moveAction != null ? moveAction.ReadValue<Vector2>() : Vector2.zero;
+            float horizontal = moveInput.x;
+            float vertical = moveInput.y;
 
             // Transform input to direction in XZ Plane
             var dodgeDir = new Vector3(0f, 0f, 0f);
