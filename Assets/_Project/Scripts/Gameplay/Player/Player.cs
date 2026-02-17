@@ -149,10 +149,8 @@ namespace BrightSouls.Gameplay
             {
                 input = GetComponentInParent<PlayerInput>();
             }
-        }
 
-        private void Start()
-        {
+            // Initialize in Awake so the action map is enabled before any Start() methods run.
             InitializeInput();
         }
 

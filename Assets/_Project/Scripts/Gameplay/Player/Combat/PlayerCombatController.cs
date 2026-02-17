@@ -115,17 +115,25 @@ namespace BrightSouls.Gameplay
             }
 
             var attack = player.Input.currentActionMap.FindAction("Attack");
-            var defend = player.Input.currentActionMap.FindAction("Defend");
+            var defend = player.Input.currentActionMap.FindAction("HeavyAttack");
 
-            if (attack == null || defend == null)
+            if (attack == null)
             {
-                Debug.LogError("PlayerCombatController could not find Attack or Defend actions.");
+                Debug.LogError("PlayerCombatController could not find Attack action.");
                 return;
             }
 
             attack.performed += ctx => commands.Attack.Execute(0);
-            defend.started += ctx => commands.Defend.Execute(true);
-            defend.canceled += ctx => commands.Defend.Execute(false);
+
+            if (defend != null)
+            {
+                defend.started += ctx => commands.Defend.Execute(true);
+                defend.canceled += ctx => commands.Defend.Execute(false);
+            }
+            else
+            {
+                Debug.LogWarning("PlayerCombatController could not find HeavyAttack (Defend) action.");
+            }
         }
 
         /* ---------------------------- Event Processing ---------------------------- */

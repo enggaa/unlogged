@@ -102,7 +102,25 @@ namespace BrightSouls.Gameplay
 
         private void InitializeInput()
         {
+            if (player == null || player.Input == null)
+            {
+                Debug.LogError("ThirdPersonCamera: Player or PlayerInput is null.");
+                return;
+            }
+
+            if (player.Input.currentActionMap == null)
+            {
+                Debug.LogError("ThirdPersonCamera: currentActionMap is null. Ensure Player.InitializeInput() ran first.");
+                return;
+            }
+
             var look = player.Input.currentActionMap.FindAction("Look");
+            if (look == null)
+            {
+                Debug.LogError("ThirdPersonCamera: Could not find 'Look' action in current action map.");
+                return;
+            }
+
             look.performed += ctx => Look.Execute(look.ReadValue<Vector2>());
         }
 
