@@ -4,6 +4,7 @@ using UnityEngine;
 
 namespace UnityPatterns.FiniteStateMachine
 {
+    [CreateAssetMenu(fileName = "SerializedStateMachine", menuName = "BrightSouls/State/SerializedStateMachine", order = 0)]
     public sealed class SerializedStateMachine : ScriptableObject
     {
         /* ------------------------------- Properties ------------------------------- */

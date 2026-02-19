@@ -47,7 +47,7 @@ namespace UnityPatterns.FiniteStateMachine
                 }
                 else
                 {
-                    Debug.LogError($"StateMachineController on \"{defaultName}\" has no default or configured states.");
+                    Debug.LogError($"StateMachineController on \"{defaultName}\" has no default or configured states. Add at least one state (for Player, e.g. PlayerStateDefault) to SerializedStateMachine.");
                 }
             }
         }
