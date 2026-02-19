@@ -97,12 +97,31 @@ namespace BrightSouls.Gameplay
 
         private void InitializeCommands()
         {
+            
             Look = new RotateCameraCommand(player);
         }
 
         private void InitializeInput()
         {
+            if (player == null || player.Input == null)
+            {
+                Debug.LogWarning("ThirdPersonCamera requires Player input.");
+                return;
+            }
+
+            if (!player.EnsureInputReady())
+            {
+                Debug.LogWarning("ThirdPersonCamera could not initialize player input.");
+                return;
+            }
+
             var look = player.Input.currentActionMap.FindAction("Look");
+            if (look == null)
+            {
+                Debug.LogWarning("ThirdPersonCamera could not find Look action.");
+                return;
+            }
+
             look.performed += ctx => Look.Execute(look.ReadValue<Vector2>());
         }
 

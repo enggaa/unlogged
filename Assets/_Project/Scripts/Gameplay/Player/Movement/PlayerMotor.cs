@@ -143,16 +143,10 @@ namespace BrightSouls.Gameplay
                 return;
             }
 
-            if (player.Input.currentActionMap == null)
+            if (!player.EnsureInputReady())
             {
-                if (player.Input.actions != null && player.Input.actions.actionMaps.Count > 0)
-                {
-                    player.Input.SwitchCurrentActionMap(player.Input.actions.actionMaps[0].name);
-                }
-                else
-                {
-                    return;
-                }
+                Debug.LogWarning("PlayerMotor could not initialize player input.");
+                return;
             }
 
             moveAction = player.Input.currentActionMap.FindAction("Move");

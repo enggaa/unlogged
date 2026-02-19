@@ -101,31 +101,27 @@ namespace BrightSouls.Gameplay
                 return;
             }
 
-            if (player.Input.currentActionMap == null)
+            if (!player.EnsureInputReady())
             {
-                if (player.Input.actions != null && player.Input.actions.actionMaps.Count > 0)
-                {
-                    player.Input.SwitchCurrentActionMap(player.Input.actions.actionMaps[0].name);
-                }
-                else
-                {
-                    Debug.LogError("PlayerCombatController could not find a current action map.");
-                    return;
-                }
+                Debug.LogError("PlayerCombatController could not initialize player input.");
+                return;
             }
 
             var attack = player.Input.currentActionMap.FindAction("Attack");
             var defend = player.Input.currentActionMap.FindAction("Defend");
 
-            if (attack == null || defend == null)
+            if (attack == null)
             {
-                Debug.LogError("PlayerCombatController could not find Attack or Defend actions.");
+                Debug.LogError("PlayerCombatController could not find Attack action.");
                 return;
             }
 
             attack.performed += ctx => commands.Attack.Execute(0);
-            defend.started += ctx => commands.Defend.Execute(true);
-            defend.canceled += ctx => commands.Defend.Execute(false);
+            if (defend != null)
+            {
+                defend.started += ctx => commands.Defend.Execute(true);
+                defend.canceled += ctx => commands.Defend.Execute(false);
+            }
         }
 
         /* ---------------------------- Event Processing ---------------------------- */
