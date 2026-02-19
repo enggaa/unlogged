@@ -164,7 +164,7 @@ public class SerializedStateMachineEditor : Editor
         EditorGUILayout.BeginVertical();
 
         Type currentType = GetManagedReferenceType(property);
-        int currentIndex = currentType == null ? 0 : candidateTypes.IndexOf(currentType) + 1;
+        int currentIndex = currentType == null ? 0 : IndexOfType(candidateTypes, currentType) + 1;
 
         string[] options = new string[candidateTypes.Count + 1];
         options[0] = "None";
@@ -187,6 +187,25 @@ public class SerializedStateMachineEditor : Editor
         }
 
         EditorGUILayout.EndVertical();
+    }
+
+
+    private static int IndexOfType(IReadOnlyList<Type> types, Type targetType)
+    {
+        if (types == null || targetType == null)
+        {
+            return -1;
+        }
+
+        for (int i = 0; i < types.Count; i++)
+        {
+            if (types[i] == targetType)
+            {
+                return i;
+            }
+        }
+
+        return -1;
     }
 
     private static Type GetManagedReferenceType(SerializedProperty property)
