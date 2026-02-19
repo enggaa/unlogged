@@ -62,7 +62,38 @@ namespace BrightSouls.Testing
             {
                 Debug.LogWarning("PlayerMotor not found!");
             }
+            else
+            {
+                var motor = player.Motor;
+                var motorType = typeof(PlayerMotor);
+                var physicsField = motorType.GetField("physicsData", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+                var worldPhysicsField = motorType.GetField("worldPhysicsData", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+                if (physicsField != null && physicsField.GetValue(motor) == null)
+                {
+                    Debug.LogWarning("PlayerMotor Physics Data is not assigned. Movement may not behave as expected.");
+                }
+
+                if (worldPhysicsField != null && worldPhysicsField.GetValue(motor) == null)
+                {
+                    Debug.LogWarning("PlayerMotor World Physics Data is not assigned. Gravity fallback will be used.");
+                }
+            }
             
+
+            // Camera Director 체크
+            if (player.CameraDirector == null)
+            {
+                Debug.LogWarning("PlayerCameraDirector not found on Player.");
+            }
+            else
+            {
+                var cameraBehaviours = player.CameraDirector.GetComponentsInChildren<PlayerCameraBase>(true);
+                if (cameraBehaviours == null || cameraBehaviours.Length == 0)
+                {
+                    Debug.LogWarning("PlayerCameraDirector has no PlayerCameraBase children. Add ThirdPersonCamera to your Main Camera or CameraRig.");
+                }
+            }
+
             // Combat Controller 체크
             if (player.Combat == null)
             {

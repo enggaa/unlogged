@@ -56,12 +56,23 @@ namespace BrightSouls.Gameplay
 
         [Header("Fallback Movement")]
         [SerializeField] private float fallbackMoveSpeed = 4f;
+        [SerializeField] private float sprintSpeedMultiplier = 1.5f;
+        [SerializeField] private float jumpVelocity = 6f;
+
+        [Header("Fallback Physics")]
+        [SerializeField] private Vector3 fallbackGravity = new Vector3(0f, -9.81f, 0f);
+        [SerializeField] private float fallbackBlockingMoveSpeedMultiplier = 0.5f;
         /* ----------------------------- Runtime Fields ----------------------------- */
 
         public MotionSourceType MotionSource;
         private bool grounded = false;
         private Vector3 speed = Vector3.zero;
         private UnityEngine.InputSystem.InputAction moveAction;
+        private UnityEngine.InputSystem.InputAction jumpAction;
+        private UnityEngine.InputSystem.InputAction sprintAction;
+        private bool sprintHeld;
+        private bool jumpWasPressed;
+        private bool hasWarnedMissingPhysicsData;
 
         /* ------------------------------ Unity Events ------------------------------ */
 
@@ -101,12 +112,13 @@ namespace BrightSouls.Gameplay
         private void Start()
         {
             InitializeCommands();
+            EnsurePhysicsDataReady();
             InitializeInput();
         }
 
         private void Update()
         {
-            if (player == null || charController == null || physicsData == null || worldPhysicsData == null)
+            if (player == null || charController == null)
             {
                 return;
             }
@@ -117,6 +129,8 @@ namespace BrightSouls.Gameplay
             {
                 return;
             }
+
+            UpdateActionStates();
 
             var moveInput = ReadMoveInput();
             Move.Execute(moveInput);
@@ -150,6 +164,22 @@ namespace BrightSouls.Gameplay
             }
 
             moveAction = player.Input.currentActionMap.FindAction("Move");
+            jumpAction = player.Input.currentActionMap.FindAction("Jump");
+            sprintAction = player.Input.currentActionMap.FindAction("Sprint");
+        }
+
+        private void EnsurePhysicsDataReady()
+        {
+            if (physicsData != null && worldPhysicsData != null)
+            {
+                return;
+            }
+
+            if (!hasWarnedMissingPhysicsData)
+            {
+                Debug.LogWarning("PlayerMotor is missing Physics Data references. Falling back to serialized defaults.");
+                hasWarnedMissingPhysicsData = true;
+            }
         }
 
         /* ----------------------------- Public Methods ----------------------------- */
@@ -186,7 +216,8 @@ namespace BrightSouls.Gameplay
             UpdateGroundedState();
             if (!grounded)
             {
-                Speed += worldPhysicsData.Gravity  * Time.deltaTime;
+                Vector3 gravity = worldPhysicsData != null ? worldPhysicsData.Gravity : fallbackGravity;
+                Speed += gravity * Time.deltaTime;
             }
             else
             {
@@ -201,7 +232,14 @@ namespace BrightSouls.Gameplay
         private void UpdateGroundedState()
         {
             var ray = new Ray(transform.position, Vector3.down);
-            grounded = Physics.SphereCast(ray, charController.radius + 0.1f, charController.height / 2f + 0.5f, physicsData.GroundDetectionLayers.value);
+            if (physicsData != null)
+            {
+                grounded = Physics.SphereCast(ray, charController.radius + 0.1f, charController.height / 2f + 0.5f, physicsData.GroundDetectionLayers.value);
+            }
+            else
+            {
+                grounded = charController.isGrounded;
+            }
             if (HasAnimatorController())
             {
                 player.Anim.SetBool("grounded", grounded);
@@ -229,16 +267,27 @@ namespace BrightSouls.Gameplay
             bool isBlocking = player.State.IsBlocking;
             if (isBlocking)
             {
-                moveSpeedMultiplier *= physicsData.BlockingMoveSpeedMultiplier;
+                moveSpeedMultiplier *= physicsData != null
+                    ? physicsData.BlockingMoveSpeedMultiplier
+                    : fallbackBlockingMoveSpeedMultiplier;
             }
+
+            if (sprintHeld)
+            {
+                moveSpeedMultiplier *= sprintSpeedMultiplier;
+            }
+
             return moveSpeedMultiplier;
         }
 
         private float CalculateFallDamage(float fallSpeed)
         {
-            if (fallSpeed > physicsData.MinimumFallDamageSpeed)
+            float minimumFallDamageSpeed = physicsData != null ? physicsData.MinimumFallDamageSpeed : float.MaxValue;
+            float fallDamageMultiplier = physicsData != null ? physicsData.FallDamageMultiplier : 0f;
+
+            if (fallSpeed > minimumFallDamageSpeed)
             {
-                return Mathf.CeilToInt(fallSpeed * physicsData.FallDamageMultiplier);
+                return Mathf.CeilToInt(fallSpeed * fallDamageMultiplier);
             }
             else
             {
@@ -267,6 +316,26 @@ namespace BrightSouls.Gameplay
             }
         }
 
+        private void UpdateActionStates()
+        {
+            EnsureInputActionsCached();
+
+            sprintHeld = sprintAction != null && sprintAction.enabled && sprintAction.IsPressed();
+
+            bool jumpPressed = jumpAction != null && jumpAction.enabled && jumpAction.IsPressed();
+            bool shouldJump = jumpPressed && !jumpWasPressed && grounded;
+            if (shouldJump)
+            {
+                Speed = new Vector3(Speed.x, jumpVelocity, Speed.z);
+                if (HasAnimatorController())
+                {
+                    player.Anim.SetTrigger("jump");
+                }
+            }
+
+            jumpWasPressed = jumpPressed;
+        }
+
         public Vector2 GetDirectionInXZPlane()
         {
             var forward = transform.forward;
@@ -275,10 +344,7 @@ namespace BrightSouls.Gameplay
         }
         private Vector2 ReadMoveInput()
         {
-            if (moveAction == null && player != null && player.Input != null && player.Input.currentActionMap != null)
-            {
-                moveAction = player.Input.currentActionMap.FindAction("Move");
-            }
+            EnsureInputActionsCached();
 
             if (moveAction != null && moveAction.enabled)
             {
@@ -286,6 +352,29 @@ namespace BrightSouls.Gameplay
             }
 
             return Vector2.zero;
+        }
+
+        private void EnsureInputActionsCached()
+        {
+            if (player == null || player.Input == null || player.Input.currentActionMap == null)
+            {
+                return;
+            }
+
+            if (moveAction == null)
+            {
+                moveAction = player.Input.currentActionMap.FindAction("Move");
+            }
+
+            if (jumpAction == null)
+            {
+                jumpAction = player.Input.currentActionMap.FindAction("Jump");
+            }
+
+            if (sprintAction == null)
+            {
+                sprintAction = player.Input.currentActionMap.FindAction("Sprint");
+            }
         }
 
         private bool HasAnimatorController()
