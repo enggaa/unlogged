@@ -257,6 +257,11 @@ namespace BrightSouls.Gameplay
             Speed = new Vector3(Speed.x, 0f, Speed.z);
             // Teleport player vertically to avoid getting stuck in the ground when falling at high speeds
             charController.Move(new Vector3(0f, -0.5f, 0f));
+
+            if (player.State != null && player.State.Fsm != null && player.State.IsJumping)
+            {
+                player.State.Fsm.SetState<PlayerStateDefault>();
+            }
         }
 
         /* --------------------------------- Helpers -------------------------------- */
@@ -327,6 +332,11 @@ namespace BrightSouls.Gameplay
             if (shouldJump)
             {
                 Speed = new Vector3(Speed.x, jumpVelocity, Speed.z);
+                if (player.State != null && player.State.Fsm != null)
+                {
+                    player.State.Fsm.SetState<PlayerStateJumping>();
+                }
+
                 if (HasAnimatorController())
                 {
                     player.Anim.SetTrigger("jump");
