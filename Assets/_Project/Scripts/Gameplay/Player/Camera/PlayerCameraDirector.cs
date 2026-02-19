@@ -1,6 +1,6 @@
 using System;
-using System.Collections;
 using System.Collections.Generic;
+using System.Linq;
 using UnityEngine;
 
 namespace BrightSouls.Gameplay
@@ -17,32 +17,25 @@ namespace BrightSouls.Gameplay
         private void Awake()
         {
             cameraMap = new Dictionary<System.Type, PlayerCameraBase>();
-
-            // playerCameras 리스트를 타입별로 cameraMap에 등록
-            if (playerCameras != null)
-            {
-                foreach (var cam in playerCameras)
-                {
-                    if (cam != null && !cameraMap.ContainsKey(cam.GetType()))
-                    {
-                        cameraMap.Add(cam.GetType(), cam);
-                    }
-                }
-            }
-
+            RegisterConfiguredCameras();
+            RegisterChildCamerasIfNeeded();
             DeactivateCameras();
         }
 
         private void Start()
         {
-            // * Unparent so the player movement/rotation doesn't incorrectly affect cameras
             UnparentCameras();
             ActivateCameras();
         }
 
         public void RegisterCamera<T>(T camera) where T : PlayerCameraBase
         {
-            cameraMap.Add(typeof(T), camera);
+            if (camera == null)
+            {
+                return;
+            }
+
+            cameraMap[typeof(T)] = camera;
         }
 
         public T GetCamera<T>() where T : PlayerCameraBase
@@ -56,11 +49,57 @@ namespace BrightSouls.Gameplay
             return null;
         }
 
+        private void RegisterConfiguredCameras()
+        {
+            if (playerCameras == null)
+            {
+                playerCameras = new List<PlayerCameraBase>();
+                return;
+            }
+
+            foreach (var cam in playerCameras)
+            {
+                TryAddCamera(cam);
+            }
+        }
+
+        private void RegisterChildCamerasIfNeeded()
+        {
+            if (cameraMap.Count > 0)
+            {
+                return;
+            }
+
+            var discovered = GetComponentsInChildren<PlayerCameraBase>(true);
+            foreach (var cam in discovered)
+            {
+                TryAddCamera(cam);
+            }
+
+            if (cameraMap.Count == 0)
+            {
+                Debug.LogWarning("PlayerCameraDirector: No PlayerCameraBase found. Add ThirdPersonCamera to your camera object.");
+            }
+        }
+
+        private void TryAddCamera(PlayerCameraBase cam)
+        {
+            if (cam == null || cameraMap.ContainsKey(cam.GetType()))
+            {
+                return;
+            }
+
+            cameraMap.Add(cam.GetType(), cam);
+        }
+
         private void UnparentCameras()
         {
             foreach (var cam in cameraMap.Values)
             {
-                cam.transform.parent = transform.root;
+                if (cam != null)
+                {
+                    cam.transform.parent = transform.root;
+                }
             }
         }
 
@@ -68,15 +107,24 @@ namespace BrightSouls.Gameplay
         {
             foreach (var cam in cameraMap.Values)
             {
-                cam.gameObject.SetActive(true);
+                if (cam != null)
+                {
+                    cam.gameObject.SetActive(true);
+                }
             }
+
+            currentCamera = cameraMap.Values.FirstOrDefault(cam => cam is ThirdPersonCamera)
+                ?? cameraMap.Values.FirstOrDefault();
         }
 
         private void DeactivateCameras()
         {
             foreach (var cam in cameraMap.Values)
             {
-                cam.gameObject.SetActive(false);
+                if (cam != null)
+                {
+                    cam.gameObject.SetActive(false);
+                }
             }
         }
 
@@ -84,14 +132,15 @@ namespace BrightSouls.Gameplay
         {
             foreach (var cam in cameraMap.Values)
             {
-                cam.SetPriority(0);
+                cam?.SetPriority(0);
             }
-            this.GetCamera<T>().SetPriority(1);
-        }
 
-        private void DoForAllCameras()
-        {
-
+            var target = GetCamera<T>();
+            if (target != null)
+            {
+                target.SetPriority(1);
+                currentCamera = target;
+            }
         }
     }
 }

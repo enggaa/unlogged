@@ -4,20 +4,14 @@ using Unity.Cinemachine;
 namespace BrightSouls.Gameplay
 {
     /// <summary>
-    /// Cinemachine 3.x 기반 ThirdPerson Orbit 카메라.
-    /// CinemachineCamera는 Priority / Blending만 담당.
-    /// 실제 오빗 회전·위치는 LateUpdate에서 직접 제어.
-    ///
-    /// ⚠️ Inspector에서 freeLookCamera의 Follow / Aim 확장은 추가하지 마세요.
-    ///    추가하면 Cinemachine이 Transform을 덮어씁니다.
+    /// Third-person orbit camera.
+    /// Supports both CinemachineCamera and plain Camera transforms.
     /// </summary>
     public sealed class ThirdPersonCamera : PlayerCameraBase
     {
-        /* ------------------------------- Definitions ------------------------------ */
-
         public sealed class RotateCameraCommand : PlayerCommand<Vector2>
         {
-            private ThirdPersonCamera thirdPersonCamera = null;
+            private readonly ThirdPersonCamera thirdPersonCamera;
 
             public RotateCameraCommand(Player player) : base(player)
             {
@@ -26,25 +20,26 @@ namespace BrightSouls.Gameplay
 
             public override bool CanExecute()
             {
-                return true;
+                return thirdPersonCamera != null;
             }
 
             public override void Execute(Vector2 input)
             {
-                thirdPersonCamera.SetInputAxisValue(input);
+                if (thirdPersonCamera != null)
+                {
+                    thirdPersonCamera.SetInputAxisValue(input);
+                }
             }
         }
 
-        /* ------------------------------- Properties ------------------------------- */
-
         public override CinemachineCamera CinemachineCamera { get => freeLookCamera; }
-
         public RotateCameraCommand Look { get; private set; }
 
-        /* ------------------------ Inspector-assigned Fields ----------------------- */
-
         [SerializeField] private Gameplay.Player player;
+
+        [Header("Camera Source (either one)")]
         [SerializeField] private CinemachineCamera freeLookCamera;
+        [SerializeField] private Camera fallbackCamera;
 
         [Header("Orbit Settings")]
         [SerializeField] private float orbitDistance = 5f;
@@ -54,50 +49,89 @@ namespace BrightSouls.Gameplay
         [SerializeField] private float maxPitchAngle = 60f;
         [SerializeField] private Vector3 targetOffset = new Vector3(0f, 1.5f, 0f);
 
-        /* ----------------------------- Runtime Fields ----------------------------- */
+        private float _yaw;
+        private float _pitch;
+        private Vector2 _inputAxis;
+        private UnityEngine.InputSystem.InputAction lookAction;
 
-        private float _yaw = 0f;
-        private float _pitch = 0f;
-        private Vector2 _inputAxis = Vector2.zero;
+        private Transform ActiveCameraTransform
+        {
+            get
+            {
+                if (freeLookCamera != null)
+                {
+                    return freeLookCamera.transform;
+                }
 
-        /* ------------------------------ Unity Events ------------------------------ */
+                if (fallbackCamera != null)
+                {
+                    return fallbackCamera.transform;
+                }
+
+                return null;
+            }
+        }
+
+        private void Awake()
+        {
+            if (player == null)
+            {
+                player = GetComponentInParent<Player>();
+            }
+
+            if (fallbackCamera == null)
+            {
+                fallbackCamera = GetComponent<Camera>();
+            }
+
+            if (fallbackCamera == null && Camera.main != null)
+            {
+                fallbackCamera = Camera.main;
+            }
+        }
 
         private void Start()
         {
             InitializeCommands();
             InitializeInput();
 
-            // 초기 회전값을 카메라 현재 회전으로 동기화
-            _yaw   = freeLookCamera.transform.eulerAngles.y;
-            _pitch = freeLookCamera.transform.eulerAngles.x;
+            var cameraTransform = ActiveCameraTransform;
+            if (cameraTransform != null)
+            {
+                _yaw = cameraTransform.eulerAngles.y;
+                _pitch = cameraTransform.eulerAngles.x;
+            }
         }
 
         private void LateUpdate()
         {
-            if (player == null || freeLookCamera == null) return;
+            var cameraTransform = ActiveCameraTransform;
+            if (player == null || cameraTransform == null)
+            {
+                return;
+            }
 
-            // 회전 누적
-            _yaw   +=  _inputAxis.x * orbitSpeedX * Time.deltaTime;
+            _inputAxis = ReadLookInput();
+
+            _yaw += _inputAxis.x * orbitSpeedX * Time.deltaTime;
             _pitch -= _inputAxis.y * orbitSpeedY * Time.deltaTime;
-            _pitch  = Mathf.Clamp(_pitch, minPitchAngle, maxPitchAngle);
+            _pitch = Mathf.Clamp(_pitch, minPitchAngle, maxPitchAngle);
 
-            // 타겟 중심점 (플레이어 머리 높이)
             Vector3 targetPos = player.transform.position + targetOffset;
-
-            // 오빗 회전·방향 계산
             Quaternion rotation = Quaternion.Euler(_pitch, _yaw, 0f);
-            Vector3 direction  = rotation * Vector3.back;
+            Vector3 direction = rotation * Vector3.back;
 
-            // CinemachineCamera Transform 직접 제어
-            freeLookCamera.transform.position = targetPos + direction * orbitDistance;
-            freeLookCamera.transform.rotation = rotation;
+            cameraTransform.position = targetPos + direction * orbitDistance;
+            cameraTransform.rotation = rotation;
         }
-
-        /* ----------------------------- Initialization ----------------------------- */
 
         private void InitializeCommands()
         {
-            
+            if (player == null || player.CameraDirector == null)
+            {
+                return;
+            }
+
             Look = new RotateCameraCommand(player);
         }
 
@@ -115,40 +149,45 @@ namespace BrightSouls.Gameplay
                 return;
             }
 
-            var look = player.Input.currentActionMap.FindAction("Look");
-            if (look == null)
+            lookAction = player.Input.currentActionMap.FindAction("Look");
+            if (lookAction == null)
             {
                 Debug.LogWarning("ThirdPersonCamera could not find Look action.");
-                return;
             }
-
-            look.performed += ctx => Look.Execute(look.ReadValue<Vector2>());
         }
-
-        /* --------------------------- Core Functionality --------------------------- */
 
         public override void SetPriority(int value)
         {
-            freeLookCamera.Priority = value;
+            if (freeLookCamera != null)
+            {
+                freeLookCamera.Priority = value;
+            }
         }
 
-        /// <summary>
-        /// 프레임당 오빗 입력축 값을 세팅. (RotateCameraCommand → 호출)
-        /// </summary>
         public void SetInputAxisValue(Vector2 input)
         {
             _inputAxis = input;
         }
 
-        /// <summary>
-        /// 오빗 회전 속도 변경 (기존 SetMaxSpeed 호환)
-        /// </summary>
         public void SetMaxSpeed(float x, float y)
         {
             orbitSpeedX = x;
             orbitSpeedY = y;
         }
 
-        /* -------------------------------------------------------------------------- */
+        private Vector2 ReadLookInput()
+        {
+            if (player != null && player.Input != null && player.Input.currentActionMap != null && lookAction == null)
+            {
+                lookAction = player.Input.currentActionMap.FindAction("Look");
+            }
+
+            if (lookAction != null && lookAction.enabled)
+            {
+                return lookAction.ReadValue<Vector2>();
+            }
+
+            return _inputAxis;
+        }
     }
 }
