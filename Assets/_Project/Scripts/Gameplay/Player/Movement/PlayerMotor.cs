@@ -65,6 +65,13 @@ namespace BrightSouls.Gameplay
         [Header("Fallback Physics")]
         [SerializeField] private Vector3 fallbackGravity = new Vector3(0f, -9.81f, 0f);
         [SerializeField] private float fallbackBlockingMoveSpeedMultiplier = 0.5f;
+
+        [Header("Ground Probe")]
+        [SerializeField] private float groundedProbeOffset = 0.08f;
+        [SerializeField] private float groundedProbeRadiusScale = 0.9f;
+
+        [Header("Debug")]
+        [SerializeField] private bool verboseActionLogging = true;
         /* ----------------------------- Runtime Fields ----------------------------- */
 
         public MotionSourceType MotionSource;
@@ -74,10 +81,12 @@ namespace BrightSouls.Gameplay
         private UnityEngine.InputSystem.InputAction jumpAction;
         private UnityEngine.InputSystem.InputAction sprintAction;
         private bool sprintHeld;
-        private bool jumpWasPressed;
         private bool hasWarnedMissingPhysicsData;
+        private bool hasWarnedMissingGroundMask;
         private float lastGroundedTime;
         private Vector3 fallbackPlanarVelocity;
+        private bool wasMovingLastFrame;
+        private bool wasGroundedLastFrame;
 
         /* ------------------------------ Unity Events ------------------------------ */
 
@@ -242,18 +251,16 @@ namespace BrightSouls.Gameplay
 
         private void UpdateGroundedState()
         {
-            var ray = new Ray(transform.position, Vector3.down);
-            if (physicsData != null)
-            {
-                grounded = Physics.SphereCast(ray, charController.radius + 0.1f, charController.height / 2f + 0.5f, physicsData.GroundDetectionLayers.value);
-            }
-            else
-            {
-                grounded = charController.isGrounded;
-            }
+            grounded = EvaluateGroundedState();
             if (grounded)
             {
                 lastGroundedTime = Time.time;
+            }
+
+            if (verboseActionLogging && grounded != wasGroundedLastFrame)
+            {
+                Debug.Log($"[PlayerMotor] Grounded state changed: {wasGroundedLastFrame} -> {grounded}");
+                wasGroundedLastFrame = grounded;
             }
 
             if (HasAnimatorController())
@@ -343,16 +350,34 @@ namespace BrightSouls.Gameplay
 
             sprintHeld = sprintAction != null && sprintAction.enabled && sprintAction.IsPressed();
 
-            bool jumpPressed = jumpAction != null && jumpAction.enabled && jumpAction.IsPressed();
+            bool jumpPressed = jumpAction != null && jumpAction.enabled && jumpAction.WasPressedThisFrame();
             bool canJump = grounded || (Time.time - lastGroundedTime) <= coyoteTime;
-            bool shouldJump = jumpPressed && !jumpWasPressed && canJump;
+            bool shouldJump = jumpPressed && canJump;
+
+            if (jumpPressed && verboseActionLogging)
+            {
+                Debug.Log($"[PlayerMotor] Jump requested. grounded={grounded}, canJump={canJump}, coyoteWindow={(Time.time - lastGroundedTime):0.000}s");
+                if (!shouldJump)
+                {
+                    Debug.Log("[PlayerMotor] Jump rejected: character is not grounded and coyote time has expired.");
+                }
+            }
+
             if (shouldJump)
             {
                 grounded = false;
                 Speed = new Vector3(Speed.x, jumpVelocity, Speed.z);
                 if (player.State != null && player.State.Fsm != null)
                 {
-                    player.State.Fsm.TrySetState<PlayerStateJumping>();
+                    bool changedState = player.State.Fsm.TrySetState<PlayerStateJumping>();
+                    if (verboseActionLogging)
+                    {
+                        Debug.Log($"[PlayerMotor] Jump accepted. verticalSpeed={Speed.y:0.00}, stateChanged={changedState}");
+                    }
+                }
+                else if (verboseActionLogging)
+                {
+                    Debug.Log($"[PlayerMotor] Jump accepted. verticalSpeed={Speed.y:0.00}, but PlayerState FSM is missing.");
                 }
 
                 if (HasAnimatorController())
@@ -361,7 +386,7 @@ namespace BrightSouls.Gameplay
                 }
             }
 
-            jumpWasPressed = jumpPressed;
+            LogMoveInputIfChanged();
         }
 
         public Vector2 GetDirectionInXZPlane()
@@ -410,6 +435,70 @@ namespace BrightSouls.Gameplay
             return player != null
                 && player.Anim != null
                 && player.Anim.runtimeAnimatorController != null;
+        }
+
+        private bool EvaluateGroundedState()
+        {
+            if (charController == null)
+            {
+                return false;
+            }
+
+            bool controllerGrounded = charController.isGrounded;
+            if (controllerGrounded)
+            {
+                return true;
+            }
+
+            if (physicsData == null)
+            {
+                return controllerGrounded;
+            }
+
+            int layerMask = physicsData.GroundDetectionLayers.value;
+            if (layerMask == 0)
+            {
+                if (!hasWarnedMissingGroundMask)
+                {
+                    Debug.LogWarning("[PlayerMotor] GroundDetectionLayers is empty. Falling back to CharacterController.isGrounded.");
+                    hasWarnedMissingGroundMask = true;
+                }
+
+                return controllerGrounded;
+            }
+
+            float probeRadius = Mathf.Max(0.01f, charController.radius * groundedProbeRadiusScale);
+            float feetOffset = (charController.height * 0.5f) - charController.radius;
+            Vector3 probeOrigin = transform.position + charController.center + Vector3.down * feetOffset;
+            Vector3 checkCenter = probeOrigin + (Vector3.up * groundedProbeOffset);
+
+            bool overlapGrounded = Physics.CheckSphere(checkCenter, probeRadius, layerMask, QueryTriggerInteraction.Ignore);
+            if (overlapGrounded)
+            {
+                return true;
+            }
+
+            var ray = new Ray(checkCenter + Vector3.up * 0.02f, Vector3.down);
+            float castDistance = groundedProbeOffset + 0.08f;
+            bool castGrounded = Physics.SphereCast(ray, probeRadius, castDistance, layerMask, QueryTriggerInteraction.Ignore);
+            return castGrounded;
+        }
+
+        private void LogMoveInputIfChanged()
+        {
+            if (!verboseActionLogging || moveAction == null || !moveAction.enabled)
+            {
+                return;
+            }
+
+            bool movingNow = moveAction.ReadValue<Vector2>().sqrMagnitude > 0.001f;
+            if (movingNow == wasMovingLastFrame)
+            {
+                return;
+            }
+
+            wasMovingLastFrame = movingNow;
+            Debug.Log(movingNow ? "[PlayerMotor] Move started." : "[PlayerMotor] Move stopped.");
         }
 
         /* -------------------------------------------------------------------------- */

@@ -43,8 +43,11 @@ namespace BrightSouls.Gameplay
             {
                 if (!CanExecute())
                 {
+                    Debug.Log("[PlayerCombat] Attack ignored: CanExecute=false.");
                     return;
                 }
+
+                Debug.Log($"[PlayerCombat] Attack executed. attackId={attackId}");
 
                 if (player.State != null && player.State.Fsm != null)
                 {
@@ -62,6 +65,7 @@ namespace BrightSouls.Gameplay
                     return;
                 }
 
+                Debug.Log("[PlayerCombat] No weapon found. Using fallback overlap attack.");
                 ApplyFallbackForwardAttackDamage();
             }
 
