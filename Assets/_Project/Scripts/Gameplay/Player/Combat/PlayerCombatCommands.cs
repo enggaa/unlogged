@@ -1,3 +1,4 @@
+using System.Collections;
 using UnityEngine;
 
 namespace BrightSouls.Gameplay
@@ -20,6 +21,9 @@ namespace BrightSouls.Gameplay
             private const float FallbackAttackRange = 2.25f;
             private const float FallbackAttackRadius = 0.9f;
             private const float FallbackAttackDamage = 15f;
+            private const float FallbackAttackStateDuration = 0.35f;
+
+            private Coroutine attackStateResetCoroutine;
 
             public AttackCommand(Player owner) : base(owner) { }
 
@@ -44,7 +48,10 @@ namespace BrightSouls.Gameplay
 
                 if (player.State != null && player.State.Fsm != null)
                 {
-                    player.State.Fsm.SetState<PlayerStateAttacking>();
+                    if (player.State.Fsm.TrySetState<PlayerStateAttacking>())
+                    {
+                        StartAttackStateResetTimer();
+                    }
                 }
 
                 player.Motor.MotionSource = PlayerMotor.MotionSourceType.Animation;
@@ -56,6 +63,34 @@ namespace BrightSouls.Gameplay
                 }
 
                 ApplyFallbackForwardAttackDamage();
+            }
+
+
+            private void StartAttackStateResetTimer()
+            {
+                if (player == null)
+                {
+                    return;
+                }
+
+                if (attackStateResetCoroutine != null)
+                {
+                    player.StopCoroutine(attackStateResetCoroutine);
+                }
+
+                attackStateResetCoroutine = player.StartCoroutine(ResetAttackStateAfterDelay());
+            }
+
+            private IEnumerator ResetAttackStateAfterDelay()
+            {
+                yield return new WaitForSeconds(FallbackAttackStateDuration);
+
+                if (player != null && player.State != null && player.State.Fsm != null)
+                {
+                    player.State.Fsm.TrySetState<PlayerStateDefault>();
+                }
+
+                attackStateResetCoroutine = null;
             }
 
             private void ApplyFallbackForwardAttackDamage()

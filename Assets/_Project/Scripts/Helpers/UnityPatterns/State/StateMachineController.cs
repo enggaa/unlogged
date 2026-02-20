@@ -72,6 +72,17 @@ namespace UnityPatterns.FiniteStateMachine
             SetState(newState);
         }
 
+        public bool TrySetState<T>() where T : IState
+        {
+            if (TryFindStateOfType<T>(out var state))
+            {
+                SetState(state);
+                return true;
+            }
+
+            return false;
+        }
+
         public void SetState(IState newState)
         {
             if (newState == null)
@@ -144,15 +155,33 @@ namespace UnityPatterns.FiniteStateMachine
 
         private T FindStateOfType<T>() where T : IState
         {
+            if (TryFindStateOfType<T>(out var state))
+            {
+                return state;
+            }
+
+            Debug.LogError($"FindStateOfType<{typeof(T)}> failed: Unable to find state of type {typeof(T)} in state machine \"{defaultName}\"");
+            return default;
+        }
+
+        private bool TryFindStateOfType<T>(out T foundState) where T : IState
+        {
+            foundState = default;
+            if (stateMachine == null || stateMachine.States == null)
+            {
+                return false;
+            }
+
             foreach (var state in stateMachine.States)
             {
-                if (state.GetType() == typeof(T))
+                if (state is T casted)
                 {
-                    return (T)state;
+                    foundState = casted;
+                    return true;
                 }
             }
-            Debug.LogError($"FindStateOfType<{typeof(T)}> failed: Unable to find state of type {typeof(T)} in state machine \"{defaultName}\"");
-            return default(T);
+
+            return false;
         }
 
         /* -------------------------------------------------------------------------- */

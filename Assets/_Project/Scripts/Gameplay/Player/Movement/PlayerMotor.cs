@@ -58,6 +58,9 @@ namespace BrightSouls.Gameplay
         [SerializeField] private float fallbackMoveSpeed = 4f;
         [SerializeField] private float sprintSpeedMultiplier = 1.5f;
         [SerializeField] private float jumpVelocity = 6f;
+        [SerializeField] private float fallbackAcceleration = 18f;
+        [SerializeField] private float fallbackDeceleration = 24f;
+        [SerializeField] private float coyoteTime = 0.12f;
 
         [Header("Fallback Physics")]
         [SerializeField] private Vector3 fallbackGravity = new Vector3(0f, -9.81f, 0f);
@@ -73,6 +76,8 @@ namespace BrightSouls.Gameplay
         private bool sprintHeld;
         private bool jumpWasPressed;
         private bool hasWarnedMissingPhysicsData;
+        private float lastGroundedTime;
+        private Vector3 fallbackPlanarVelocity;
 
         /* ------------------------------ Unity Events ------------------------------ */
 
@@ -202,9 +207,15 @@ namespace BrightSouls.Gameplay
             }
             else if (charController != null)
             {
-                var moveDir = new Vector3(input.x, 0f, input.y);
-                moveDir = transform.TransformDirection(moveDir);
-                var move = moveDir * (fallbackMoveSpeed * moveSpeedMultiplier) * Time.deltaTime;
+                var desiredDir = new Vector3(input.x, 0f, input.y);
+                desiredDir = transform.TransformDirection(desiredDir);
+                var desiredVelocity = desiredDir * (fallbackMoveSpeed * moveSpeedMultiplier);
+
+                bool hasInput = desiredVelocity.sqrMagnitude > 0.0001f;
+                float accel = hasInput ? fallbackAcceleration : fallbackDeceleration;
+                fallbackPlanarVelocity = Vector3.MoveTowards(fallbackPlanarVelocity, desiredVelocity, accel * Time.deltaTime);
+
+                var move = fallbackPlanarVelocity * Time.deltaTime;
                 charController.Move(move);
             }
         }
@@ -240,6 +251,11 @@ namespace BrightSouls.Gameplay
             {
                 grounded = charController.isGrounded;
             }
+            if (grounded)
+            {
+                lastGroundedTime = Time.time;
+            }
+
             if (HasAnimatorController())
             {
                 player.Anim.SetBool("grounded", grounded);
@@ -260,7 +276,7 @@ namespace BrightSouls.Gameplay
 
             if (player.State != null && player.State.Fsm != null && player.State.IsJumping)
             {
-                player.State.Fsm.SetState<PlayerStateDefault>();
+                player.State.Fsm.TrySetState<PlayerStateDefault>();
             }
         }
 
@@ -328,13 +344,15 @@ namespace BrightSouls.Gameplay
             sprintHeld = sprintAction != null && sprintAction.enabled && sprintAction.IsPressed();
 
             bool jumpPressed = jumpAction != null && jumpAction.enabled && jumpAction.IsPressed();
-            bool shouldJump = jumpPressed && !jumpWasPressed && grounded;
+            bool canJump = grounded || (Time.time - lastGroundedTime) <= coyoteTime;
+            bool shouldJump = jumpPressed && !jumpWasPressed && canJump;
             if (shouldJump)
             {
+                grounded = false;
                 Speed = new Vector3(Speed.x, jumpVelocity, Speed.z);
                 if (player.State != null && player.State.Fsm != null)
                 {
-                    player.State.Fsm.SetState<PlayerStateJumping>();
+                    player.State.Fsm.TrySetState<PlayerStateJumping>();
                 }
 
                 if (HasAnimatorController())
