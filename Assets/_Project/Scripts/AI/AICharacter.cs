@@ -94,6 +94,12 @@ namespace BrightSouls.AI
 
         [SerializeField] private float walkMoveSpeed = 2f;
         [SerializeField] private float runMoveSpeed = 4f;
+        [Header("Fallback Combat (No FSM)")]
+        [SerializeField] private float fallbackDestinationUpdateInterval = 0.15f;
+        [SerializeField] private float fallbackChaseStopDistance = 0.75f;
+        [SerializeField] private float fallbackAttackRange = 1.75f;
+        [SerializeField] private float fallbackAttackCooldown = 1.2f;
+
 
         /* ----------------------------- Runtime Fields ----------------------------- */
 
@@ -104,6 +110,7 @@ namespace BrightSouls.AI
         private float currentMoveSpeed = 4f;
         private Vector2 movement; // World-Space Movement Direction (X,Z) of AICharacter
         private float fallbackSeekTimer = 0f;
+        private float fallbackAttackTimer = 0f;
         private bool fallbackInitialized = false;
 
         /* ------------------------------ Unity Events ------------------------------ */
@@ -267,11 +274,33 @@ namespace BrightSouls.AI
                 return;
             }
 
+            navAgent.stoppingDistance = fallbackChaseStopDistance;
+
             fallbackSeekTimer += Time.deltaTime;
-            if (fallbackSeekTimer >= 0.5f)
+            if (fallbackSeekTimer >= fallbackDestinationUpdateInterval)
             {
                 fallbackSeekTimer = 0f;
                 navAgent.SetDestination(Target.transform.position);
+            }
+
+            float distanceToTarget = GetDistanceToTarget();
+            bool inAttackRange = distanceToTarget <= fallbackAttackRange;
+            if (!inAttackRange)
+            {
+                return;
+            }
+
+            fallbackAttackTimer += Time.deltaTime;
+            var dir = GetDirectionToTargetPlanified();
+            if (dir.sqrMagnitude > 0.0001f)
+            {
+                transform.rotation = Quaternion.Lerp(transform.rotation, Quaternion.LookRotation(dir, Vector3.up), 12f * Time.deltaTime);
+            }
+
+            if (fallbackAttackTimer >= fallbackAttackCooldown)
+            {
+                fallbackAttackTimer = 0f;
+                Attack(0);
             }
         }
 

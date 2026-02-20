@@ -53,5 +53,6 @@ namespace BrightSouls.Gameplay
     public class PlayerStateAttacking : PlayerState { }
     public class PlayerStateComboing : PlayerState { }
     public class PlayerStateComboEnding : PlayerState { }
+    public class PlayerStateDefault : PlayerState { }
     public class PlayerStateJumping : PlayerState { }
 }

@@ -32,8 +32,8 @@ namespace UnityPatterns.FiniteStateMachine
             defaultName = gameObject.name;
             if (stateMachine == null)
             {
-                Debug.LogError($"StateMachineController on \"{defaultName}\" has no SerializedStateMachine assigned.");
-                return;
+                stateMachine = ScriptableObject.CreateInstance<SerializedStateMachine>();
+                Debug.LogWarning($"StateMachineController on \"{defaultName}\" had no SerializedStateMachine assigned. Created a runtime fallback state machine.");
             }
 
             if (currentState == null)
@@ -47,7 +47,7 @@ namespace UnityPatterns.FiniteStateMachine
                 }
                 else
                 {
-                    Debug.LogError($"StateMachineController on \"{defaultName}\" has no default or configured states.");
+                    Debug.LogError($"StateMachineController on \"{defaultName}\" has no default or configured states. Add at least one state (for Player, e.g. PlayerStateDefault) to SerializedStateMachine.");
                 }
             }
         }
@@ -70,6 +70,17 @@ namespace UnityPatterns.FiniteStateMachine
         {
             var newState = FindStateOfType<T>();
             SetState(newState);
+        }
+
+        public bool TrySetState<T>() where T : IState
+        {
+            if (TryFindStateOfType<T>(out var state))
+            {
+                SetState(state);
+                return true;
+            }
+
+            return false;
         }
 
         public void SetState(IState newState)
@@ -144,15 +155,33 @@ namespace UnityPatterns.FiniteStateMachine
 
         private T FindStateOfType<T>() where T : IState
         {
+            if (TryFindStateOfType<T>(out var state))
+            {
+                return state;
+            }
+
+            Debug.LogError($"FindStateOfType<{typeof(T)}> failed: Unable to find state of type {typeof(T)} in state machine \"{defaultName}\"");
+            return default;
+        }
+
+        private bool TryFindStateOfType<T>(out T foundState) where T : IState
+        {
+            foundState = default;
+            if (stateMachine == null || stateMachine.States == null)
+            {
+                return false;
+            }
+
             foreach (var state in stateMachine.States)
             {
-                if (state.GetType() == typeof(T))
+                if (state is T casted)
                 {
-                    return (T)state;
+                    foundState = casted;
+                    return true;
                 }
             }
-            Debug.LogError($"FindStateOfType<{typeof(T)}> failed: Unable to find state of type {typeof(T)} in state machine \"{defaultName}\"");
-            return default(T);
+
+            return false;
         }
 
         /* -------------------------------------------------------------------------- */
