@@ -4,8 +4,6 @@ using UnityEngine;
 
 namespace UnityPatterns.FiniteStateMachine
 {
-    [CreateAssetMenu(fileName = "SerializedStateMachine", menuName = "BrightSouls/State/SerializedStateMachine", order = 0)]
-
     [System.Serializable]
     public sealed class EmptyState : IState
     {
@@ -14,6 +12,7 @@ namespace UnityPatterns.FiniteStateMachine
         public void OnStateExit(StateMachineController fsm) { }
     }
 
+    [CreateAssetMenu(fileName = "SerializedStateMachine", menuName = "BrightSouls/State/SerializedStateMachine", order = 0)]
     public sealed class SerializedStateMachine : ScriptableObject
     {
         /* ------------------------------- Properties ------------------------------- */

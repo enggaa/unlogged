@@ -32,8 +32,8 @@ namespace UnityPatterns.FiniteStateMachine
             defaultName = gameObject.name;
             if (stateMachine == null)
             {
-                Debug.LogError($"StateMachineController on \"{defaultName}\" has no SerializedStateMachine assigned.");
-                return;
+                stateMachine = ScriptableObject.CreateInstance<SerializedStateMachine>();
+                Debug.LogWarning($"StateMachineController on \"{defaultName}\" had no SerializedStateMachine assigned. Created a runtime fallback state machine.");
             }
 
             if (currentState == null)
