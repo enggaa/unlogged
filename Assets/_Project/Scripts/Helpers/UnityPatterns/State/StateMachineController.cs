@@ -32,8 +32,8 @@ namespace UnityPatterns.FiniteStateMachine
             defaultName = gameObject.name;
             if (stateMachine == null)
             {
-                Debug.LogError($"StateMachineController on \"{defaultName}\" has no SerializedStateMachine assigned.");
-                return;
+                stateMachine = ScriptableObject.CreateInstance<SerializedStateMachine>();
+                Debug.LogWarning($"StateMachineController on \"{defaultName}\" had no SerializedStateMachine assigned. Created a runtime fallback state machine.");
             }
 
             if (currentState == null)
@@ -47,7 +47,7 @@ namespace UnityPatterns.FiniteStateMachine
                 }
                 else
                 {
-                    Debug.LogError($"StateMachineController on \"{defaultName}\" has no default or configured states.");
+                    Debug.LogError($"StateMachineController on \"{defaultName}\" has no default or configured states. Add at least one state (for Player, e.g. PlayerStateDefault) to SerializedStateMachine.");
                 }
             }
         }

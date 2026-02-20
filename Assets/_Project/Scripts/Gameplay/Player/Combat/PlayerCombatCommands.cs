@@ -17,6 +17,10 @@ namespace BrightSouls.Gameplay
 
         public class AttackCommand : PlayerCommand<int>
         {
+            private const float FallbackAttackRange = 2.25f;
+            private const float FallbackAttackRadius = 0.9f;
+            private const float FallbackAttackDamage = 15f;
+
             public AttackCommand(Player owner) : base(owner) { }
 
 
@@ -33,9 +37,46 @@ namespace BrightSouls.Gameplay
 
             public override void Execute(int attackId)
             {
+                if (!CanExecute())
+                {
+                    return;
+                }
+
+                if (player.State != null && player.State.Fsm != null)
+                {
+                    player.State.Fsm.SetState<PlayerStateAttacking>();
+                }
+
                 player.Motor.MotionSource = PlayerMotor.MotionSourceType.Animation;
                 var weapon = player.GetComponentInChildren<Weapon>();
-                weapon?.OnAttack(attackId);
+                if (weapon != null)
+                {
+                    weapon.OnAttack(attackId);
+                    return;
+                }
+
+                ApplyFallbackForwardAttackDamage();
+            }
+
+            private void ApplyFallbackForwardAttackDamage()
+            {
+                Vector3 attackOrigin = player.transform.position + player.transform.forward * FallbackAttackRange;
+                Collider[] hits = Physics.OverlapSphere(attackOrigin, FallbackAttackRadius);
+                foreach (var hit in hits)
+                {
+                    var target = hit.GetComponentInParent<ICombatCharacter>();
+                    if (target == null || ReferenceEquals(target, player) || target.IsDead)
+                    {
+                        continue;
+                    }
+
+                    if (target.Faction.Value == player.Faction.Value)
+                    {
+                        continue;
+                    }
+
+                    target.Health.Value -= FallbackAttackDamage;
+                }
             }
         }
 
