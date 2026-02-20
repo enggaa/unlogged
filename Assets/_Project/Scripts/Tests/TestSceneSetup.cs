@@ -79,7 +79,7 @@ namespace BrightSouls.Testing
             }
             
             // NavMesh를 위한 레이어 설정
-            ground.layer = LayerMask.NameToLayer("Default");
+            ground.layer = LayerMask.NameToLayer("Ground");
 
             if (buildNavMeshAtRuntime)
             {
